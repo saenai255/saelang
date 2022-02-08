@@ -1,0 +1,18 @@
+{
+    "compilerOptions": {
+        "module": "commonjs",
+        "allowJs": true,
+        "lib": [
+            "DOM",
+            "ES2021"
+        ],
+        "strictNullChecks": false,
+        "skipLibCheck": true,
+        "pretty": true,
+        "suppressImplicitAnyIndexErrors": true,
+        "noImplicitAny": false,
+    },
+    "exclude": [
+        "node_modules"
+    ]
+}

@@ -1,0 +1,87 @@
+module sample;
+
+use std.io;
+
+type int i32;
+
+type Gender enum {
+    Male,
+    Female,
+    Other(Str),
+}
+
+type Person struct {
+    name Str;
+    age u8;
+    gender Gender;
+    family struct {
+        mother Maybe[Person];
+        father Maybe[Person];
+        children Vec[Person];
+    };
+}
+
+fn has_mother(p Person) bool {
+    return Some(mother) == p.family.mother
+}
+
+fn grow(p *Person, years u8 = 1) Result[(), Error] {
+    return if p.age + years < p.age || p.age + years > 130 {
+        take Error("Pretty sure that's not correct.")
+    } else {
+        p.age += years;
+        take Ok(())
+    }
+}
+
+fn free(p *Person) {
+    free p.name;
+    free p;
+}
+
+fn palindromify(word Str) Str {
+    return io.sprintf("%%", word, word.reverse());
+}
+
+fn main() {
+    io.printf("hello world!\n");
+    let john = Person { // got allocated on the stack, type immutable Person
+        name = "John Smithy",
+        age = 42u8,
+        gender = Male,
+        family = {
+            mother = None,
+            father = None,
+            children = [],
+        },
+    }
+
+    io.printf("% has a living mother? %\n", john.name, john.has_mother());
+
+    let mutable jim = heap Person { // jim is of type mutable *Person and got allocated on the heap
+        name = "Jim Smithy",
+        age = 42u8,
+        gender = Male,
+        family = {
+            mother = None,
+            father = None,
+            children = [],
+        },
+    }
+    defer jim.free()
+
+    // john.grow() does not compile because it is not mutable
+
+    jim.grow(years = 2)?;
+    /**
+     * ^^^^^ same as:
+
+        if Error(err) == jim.grow(years = 2) {
+            return err
+        }
+     
+     */
+
+    let my_word = "cheemz";
+    io.printf("This word '%' is not a palindrome but '%' is.\n", my_word, my_word.palindromify().free_later());
+}
