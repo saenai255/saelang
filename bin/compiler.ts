@@ -17,7 +17,13 @@ function main(argv) {
   // Direct expression:
   ast = parser.parse(
     `
-    greet(1 + 1)();
+    fn fib(count i32) i32 {
+      return count == count;
+    } 
+
+    fn main() {
+      std.printf("fib: %d", fib(5));
+    }
     `
   );
 

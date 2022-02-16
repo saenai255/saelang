@@ -43,14 +43,23 @@ export interface BinaryExpression {
     type: 'BinaryExpression';
     left: Expression;
     right: Expression;
-    operator: '+' | '-' | '*' | '/'
-}
-
-export interface LogicalExpression {
-    type: 'LogicalExpression';
-    left: Expression;
-    right: Expression;
-    operator: '<' | '>' | '>=' | '<=' | '==' | '!=' | '||' | '&&' | '~||' | '~&&' | '!||' | '!&&'
+    operator:
+    | '+'
+    | '-'
+    | '*'
+    | '/'
+    | '<'
+    | '>'
+    | '>='
+    | '<='
+    | '=='
+    | '!='
+    | '||'
+    | '&&'
+    | '~||'
+    | '~&&'
+    | '!||'
+    | '!&&'
 }
 
 export interface FunctionExpression {
@@ -169,6 +178,16 @@ export interface ReturnStatement {
     value: Expression;
 }
 
+export interface DeferStatement {
+    type: 'DeferStatement';
+    stmt: Statement;
+}
+
+export interface FireStatement {
+    type: 'FireStatement';
+    functionCall: FunctionCall;
+}
+
 export type Statement =
     | ExpressionStatement
     | BlockStatement
@@ -179,3 +198,5 @@ export type Statement =
     | FunctionExpression
     | AssignmentStatement
     | VariableDeclarationStatement
+    | DeferStatement
+    | FireStatement

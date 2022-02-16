@@ -23,3 +23,6 @@ export const TypePrimitive = (type: t.Primitives): t.Primitive => ({ type: 'Prim
 export const AssignmentStatement = (left: t.AssignmentStatement['left'], operator: t.AssignmentStatement['operator'], right: t.AssignmentStatement['right']): t.AssignmentStatement => ({ type: 'AssignmentStatement', left, right, operator })
 export const VariableDeclarationStatement = (args: NT<t.VariableDeclarationStatement>): t.VariableDeclarationStatement => ({ type: 'VariableDeclarationStatement', ...args })
 export const MemberExpression = (expr: t.Expression, property: t.Identifier): t.MemberExpression => ({ type: 'MemberExpression', expression: expr, property })
+export const IndexExpression = (expr: t.Expression, index: t.Expression): t.IndexExpression => ({ type: 'IndexExpression', expression: expr, index })
+export const FireStatement = (functionCall: t.FunctionCall): t.FireStatement => ({ type: 'FireStatement', functionCall })
+export const DeferStatement = (stmt: t.Statement): t.DeferStatement => ({ type: 'DeferStatement', stmt })

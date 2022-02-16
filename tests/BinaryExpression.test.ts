@@ -50,4 +50,18 @@ describe('BinaryExpression', () => {
                             NumericLiteral(1)),
                         operator as any,
                         NumericLiteral(2))))))
+
+    for (const operator of ['>', '<', '==', '!=', '<=', '>=', '||', '&&', '~||', '~&&', '!||', '!&&'])
+        test(`Complex boolean expression with ${operator}`, () => expectTree(
+            `1 + 1 ${operator} 2;`,
+            Program(
+                ExpressionStatement(
+                    BinaryExpression(
+                        BinaryExpression(
+                            NumericLiteral(1),
+                            '+',
+                            NumericLiteral(1)
+                        ),
+                        operator as any,
+                        NumericLiteral(2))))))
 })

@@ -21,6 +21,16 @@ const Spec: [RegExp, string | null][] = [
   [/^\/\/.*/, null], // comments //
   [/^\/\*[\s\S]*?\*\//, null], // multiline comments /* */
 
+  // Boolean operators
+  [/^[\>\<]=?/, 'relational_operator'],
+  [/^[\=\!]=/, 'equality_operator'],
+  [/^\&\&/, 'logical_and_operator'],
+  [/^\|\|/, 'logical_or_operator'],
+  [/^\!\|\|/, 'logical_misc_operator'], // nor
+  [/^\!\&\&/, 'logical_misc_operator'], // nand
+  [/^\~\&\&/, 'logical_misc_operator'], // xand
+  [/^\~\|\|/, 'logical_misc_operator'], // xor
+
   // Symbols
   [/^;/, ';'],
   [/^,/, ','],
@@ -44,6 +54,8 @@ const Spec: [RegExp, string | null][] = [
   [/^return/, 'return'],
   [/^take/, 'take'],
   [/^fn/, 'fn'],
+  [/^defer/, 'defer'],
+  [/^fire/, 'fire'],
 
   [/^i8/, 'primitive'],
   [/^i16/, 'primitive'],

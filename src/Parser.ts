@@ -1,4 +1,4 @@
-import AST, { AssignmentStatement, BinaryExpression, BlockStatement, BooleanLiteral, Expression, ExpressionStatement, FunctionCall, FunctionExpression, Identifier, IfExpression, Literal, MemberExpression, NumericLiteral, ReturnStatement, Statement, StringLiteral, TakeStatement, Type, TypedArgument, TypeExpression, VariableDeclarationStatement } from './AST';
+import AST, { AssignmentStatement, BinaryExpression, BlockStatement, BooleanLiteral, DeferStatement, Expression, ExpressionStatement, FireStatement, FunctionCall, FunctionExpression, Identifier, IfExpression, IndexExpression, Literal, MemberExpression, NumericLiteral, ReturnStatement, Statement, StringLiteral, TakeStatement, Type, TypedArgument, TypeExpression, VariableDeclarationStatement } from './AST';
 import { TypeEmpty } from './ASTUtils';
 import { SaeError, SaeSyntaxError } from './Error'
 import { Token, TokenDetails, Tokenizer } from './Tokenizer'
@@ -108,6 +108,8 @@ export class Parser {
       case 'if': return this.IfExpression()
       case 'fn': return this.FunctionExpression()
       case 'return': return this.ReturnStatement()
+      case 'fire': return this.FireStatement()
+      case 'defer': return this.DeferStatement()
       case 'let_mut': // fallthrough
       case 'let': return this.VariableDeclarationStatement()
       case 'identifier':
@@ -146,6 +148,17 @@ export class Parser {
     // Implement here...
   }
 
+  IndexExpression(expr: Expression): IndexExpression {
+    this._eat('[');
+    const index = this.Expression();
+    this._eat(']');
+
+    return {
+      type: 'IndexExpression',
+      expression: expr,
+      index
+    }
+  }
 
   FunctionCall(func: Expression): FunctionCall {
     const params = []
@@ -368,45 +381,6 @@ export class Parser {
   }
 
   /**
-   * VariableStatementInit
-   *   : 'let' VariableDeclarationList
-   *   ;
-   */
-  VariableStatementInit() {
-    // Implement here...
-  }
-
-  /**
-   * VariableStatement
-   *   : VariableStatementInit ';'
-   *   ;
-   */
-  VariableStatement() {
-    const variableStatement = this.VariableStatementInit();
-    this._eat(';');
-    return variableStatement;
-  }
-
-  /**
-   * VariableDeclarationList
-   *   : VariableDeclaration
-   *   | VariableDeclarationList ',' VariableDeclaration
-   *   ;
-   */
-  VariableDeclarationList() {
-    // Implement here...
-  }
-
-  /**
-   * VariableDeclaration
-   *   : Identifier OptVariableInitializer
-   *   ;
-   */
-  VariableDeclaration() {
-    // Implement here...
-  }
-
-  /**
    * VariableInitializer
    *   : SIMPLE_ASSIGN AssignmentExpression
    *   ;
@@ -426,6 +400,30 @@ export class Parser {
     return {
       type: 'EmptyStatement',
     };
+  }
+
+  FireStatement(): FireStatement {
+    this._eat('fire')
+    const func = this.Expression()
+    if (func.type !== 'FunctionCall') {
+      throw new SaeSyntaxError('Expected FunctionCall but got ' + func.type, this._lookahead)
+    }
+    this._eat(';')
+
+    return {
+      type: 'FireStatement',
+      functionCall: func
+    }
+  }
+
+  DeferStatement(): DeferStatement {
+    this._eat('defer')
+    const stmt = this.Statement();
+
+    return {
+      type: 'DeferStatement',
+      stmt
+    }
   }
 
   /**
@@ -462,7 +460,7 @@ export class Parser {
   Expression(): Expression {
     switch (this._lookahead.token.type) {
       default:
-        return this.AdditiveExpression();
+        return this.LogicalMiscExpression();
     }
   }
 
@@ -519,36 +517,6 @@ export class Parser {
   }
 
   /**
-   * Extra check whether it's valid assignment target.
-   */
-  _checkValidAssignmentTarget(node) {
-    if (node.type === 'Identifier' || node.type === 'MemberExpression') {
-      return node;
-    }
-    throw new SyntaxError('Invalid left-hand side in assignment expression');
-  }
-
-  /**
-   * Whether the token is an assignment operator.
-   */
-  _isAssignmentOperator(tokenType) {
-    return tokenType === 'SIMPLE_ASSIGN' || tokenType === 'COMPLEX_ASSIGN';
-  }
-
-  /**
-   * AssignmentOperator
-   *   : SIMPLE_ASSIGN
-   *   | COMPLEX_ASSIGN
-   *   ;
-   */
-  AssignmentOperator() {
-    if (this._lookahead.token.type === 'SIMPLE_ASSIGN') {
-      return this._eat('SIMPLE_ASSIGN');
-    }
-    return this._eat('COMPLEX_ASSIGN');
-  }
-
-  /**
    * Logical OR expression.
    *
    *   x || y
@@ -558,8 +526,18 @@ export class Parser {
    *   | LogicalORExpression LOGICAL_OR LogicalANDExpression
    *   ;
    */
+  LogicalMiscExpression() {
+    return this._BinaryExpression(
+      () => this.LogicalORExpression(),
+      'logical_misc_operator'
+    )
+  }
+
   LogicalORExpression() {
-    // Implement here...
+    return this._BinaryExpression(
+      () => this.LogicalANDExpression(),
+      'logical_or_operator'
+    )
   }
 
   /**
@@ -573,7 +551,10 @@ export class Parser {
    *   ;
    */
   LogicalANDExpression() {
-    // Implement here...
+    return this._BinaryExpression(
+      () => this.EqualityExpression(),
+      'logical_and_operator'
+    )
   }
 
   /**
@@ -588,7 +569,10 @@ export class Parser {
    *   ;
    */
   EqualityExpression() {
-    // Implement here...
+    return this._BinaryExpression(
+      () => this.RelationalExpression(),
+      'equality_operator'
+    )
   }
 
   /**
@@ -604,8 +588,11 @@ export class Parser {
    *   | RelationalExpression RELATIONAL_OPERATOR AdditiveExpression
    *   ;
    */
-  RelationalExpression() {
-    // Implement here...
+  RelationalExpression(): Expression {
+    return this._BinaryExpression(
+      () => this.AdditiveExpression(),
+      'relational_operator'
+    )
   }
 
   /**
@@ -614,9 +601,9 @@ export class Parser {
    *   | AdditiveExpression ADDITIVE_OPERATOR MultiplicativeExpression
    *   ;
    */
-  AdditiveExpression(): BinaryExpression {
+  AdditiveExpression(): Expression {
     return this._BinaryExpression(
-      'MultiplicativeExpression',
+      () => this.MultiplicativeExpression(),
       'additive_operator'
     )
   }
@@ -627,9 +614,9 @@ export class Parser {
    *   | MultiplicativeExpression MULTIPLICATIVE_OPERATOR UnaryExpression
    *   ;
    */
-  MultiplicativeExpression(): BinaryExpression {
+  MultiplicativeExpression(): Expression {
     return this._BinaryExpression(
-      'PrimaryExpression',
+      () => this.PrimaryExpression(),
       'multiplicative_operator'
     );
   }
@@ -644,13 +631,13 @@ export class Parser {
   /**
    * Generic binary expression.
    */
-  _BinaryExpression(builderName, operatorToken): BinaryExpression {
-    let left = this[builderName]();
+  _BinaryExpression(getExpression: () => Expression, operatorToken: string): Expression {
+    let left = getExpression();
 
     while (this._lookahead.token && this._lookahead.token.type === operatorToken) {
       const operator = this._eat(operatorToken).value;
 
-      const right = this[builderName]();
+      const right = getExpression();
 
       left = {
         type: 'BinaryExpression',
