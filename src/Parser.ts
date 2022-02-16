@@ -1,4 +1,4 @@
-import AST, { AssignmentStatement, BinaryExpression, BlockStatement, BooleanLiteral, Expression, ExpressionStatement, FunctionCall, FunctionExpression, Identifier, IfExpression, Literal, NumericLiteral, ReturnStatement, Statement, StringLiteral, TakeStatement, Type, TypedArgument, TypeExpression, VariableDeclarationStatement } from './AST';
+import AST, { AssignmentStatement, BinaryExpression, BlockStatement, BooleanLiteral, Expression, ExpressionStatement, FunctionCall, FunctionExpression, Identifier, IfExpression, Literal, MemberExpression, NumericLiteral, ReturnStatement, Statement, StringLiteral, TakeStatement, Type, TypedArgument, TypeExpression, VariableDeclarationStatement } from './AST';
 import { TypeEmpty } from './ASTUtils';
 import { SaeError, SaeSyntaxError } from './Error'
 import { Token, TokenDetails, Tokenizer } from './Tokenizer'
@@ -147,8 +147,7 @@ export class Parser {
   }
 
 
-  FunctionCall(): FunctionCall {
-    const func = this.Expression();
+  FunctionCall(func: Expression): FunctionCall {
     const params = []
     this._eat('(')
 
@@ -460,12 +459,10 @@ export class Parser {
   }
 
 
-  __lastExpr = null;
   Expression(): Expression {
     switch (this._lookahead.token.type) {
       default:
-        this.__lastExpr = this.AdditiveExpression();
-        return this.__lastExpr;
+        return this.AdditiveExpression();
     }
   }
 
@@ -739,7 +736,14 @@ export class Parser {
    *   | MemberExpression '[' Expression ']'
    *   ;
    */
-  MemberExpression() {
+  MemberExpression(expr: Expression): MemberExpression {
+    this._eat('.')
+    const identifier = this.Identifier()
+    return {
+      type: 'MemberExpression',
+      expression: expr,
+      property: identifier
+    }
     // Implement here...
   }
 
@@ -748,14 +752,28 @@ export class Parser {
     //   return this.FunctionCall()
     // }
 
+    let expr: Expression
     switch (this._lookahead.token.type) {
-      case '(': return this.ParenthesizedExpression();
-      case 'if': return this.IfExpression()
-      case 'identifier': return this.Identifier()
-      case 'fn': return this.FunctionExpression()
+      case '(': expr = this.ParenthesizedExpression(); break
+      case 'if': expr = this.IfExpression(); break
+      case 'identifier': expr = this.Identifier(); break
+      case 'fn': expr = this.FunctionExpression(); break
       default:
-        return this.Literal();
+        expr = this.Literal();
     }
+
+    while (['.', '('].includes(this._lookahead?.token?.type)) {
+      switch (this._lookahead?.token?.type) {
+        case '.':
+          expr = this.MemberExpression(expr)
+          break
+        case '(':
+          expr = this.FunctionCall(expr)
+          break
+      }
+    }
+
+    return expr;
   }
 
   /**

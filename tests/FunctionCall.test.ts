@@ -1,7 +1,7 @@
 import { BinaryExpression, ExpressionStatement, FunctionCall, Identifier, NumericLiteral, Program } from "../src/ASTUtils"
 import { expectTree } from "./util"
 
-describe.skip('FunctionCall', () => {
+describe('FunctionCall', () => {
     test('simple call, no params', () => expectTree(
         `greet();`,
         Program(
