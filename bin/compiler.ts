@@ -17,7 +17,7 @@ function main(argv) {
   // Direct expression:
   ast = parser.parse(
     `
-    abc0;
+      let greet = fn () {};
     `
   );
 

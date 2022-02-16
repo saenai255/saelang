@@ -1,5 +1,5 @@
-import { SaeSyntaxError } from "../src/Error"
-import { expectError, expectTree } from "./util"
+import { BlockStatement, IfExpression, NumericLiteral, Program, TakeStatement } from "../src/ASTUtils"
+import { expectTree } from "./util"
 
 describe('IfExpression', () => {
     test('Only with then', () => expectTree(`
@@ -7,30 +7,11 @@ describe('IfExpression', () => {
             take 5;
         }
         `,
-        {
-            type: 'Program',
-            body: [
-                {
-                    type: 'IfExpression',
-                    condition: {
-                        type: 'NumericLiteral',
-                        value: 3,
-                    },
-                    then: {
-                        type: "BlockStatement",
-                        body: [{
-                            type: 'TakeStatement',
-                            value: {
-                                type: 'NumericLiteral',
-                                value: 5
-                            }
-                        }]
-                    },
-                    else: null
-                }
-            ]
-        }
-    ))
+        Program(
+            IfExpression(
+                NumericLiteral(3),
+                BlockStatement(
+                    TakeStatement(NumericLiteral(5)))))))
 
     test('With then and else', () => expectTree(`
         if 3 {
@@ -39,39 +20,13 @@ describe('IfExpression', () => {
             take 2;
         }
         `,
-        {
-            type: 'Program',
-            body: [
-                {
-                    type: 'IfExpression',
-                    condition: {
-                        type: 'NumericLiteral',
-                        value: 3,
-                    },
-                    then: {
-                        type: "BlockStatement",
-                        body: [{
-                            type: 'TakeStatement',
-                            value: {
-                                type: 'NumericLiteral',
-                                value: 5
-                            }
-                        }]
-                    },
-                    else: {
-                        type: 'BlockStatement',
-                        body: [{
-                            type: 'TakeStatement',
-                            value: {
-                                type: 'NumericLiteral',
-                                value: 2
-                            }
-                        }]
-                    }
-                }
-            ]
-        }
-    ))
+        Program(
+            IfExpression(
+                NumericLiteral(3),
+                BlockStatement(
+                    TakeStatement(NumericLiteral(5))),
+                BlockStatement(
+                    TakeStatement(NumericLiteral(2)))))))
 
     test('With nested if', () => expectTree(`
         if 3 {
@@ -84,60 +39,15 @@ describe('IfExpression', () => {
             };
         }
         `,
-        {
-            type: 'Program',
-            body: [
-                {
-                    type: 'IfExpression',
-                    condition: {
-                        type: 'NumericLiteral',
-                        value: 3,
-                    },
-                    then: {
-                        type: "BlockStatement",
-                        body: [{
-                            type: 'TakeStatement',
-                            value: {
-                                type: 'NumericLiteral',
-                                value: 5
-                            }
-                        }]
-                    },
-                    else: {
-                        type: 'BlockStatement',
-                        body: [{
-                            type: 'TakeStatement',
-                            value: {
-                                type: 'IfExpression',
-                                condition: {
-                                    type: 'NumericLiteral',
-                                    value: 5
-                                },
-                                then: {
-                                    type: 'BlockStatement',
-                                    body: [{
-                                        type: 'TakeStatement',
-                                        value: {
-                                            type: 'NumericLiteral',
-                                            value: 5
-                                        }
-                                    }]
-                                },
-                                else: {
-                                    type: 'BlockStatement',
-                                    body: [{
-                                        type: 'TakeStatement',
-                                        value: {
-                                            type: 'NumericLiteral',
-                                            value: 6
-                                        }
-                                    }]
-                                }
-                            }
-                        }]
-                    }
-                }
-            ]
-        }
-    ))
-})
+        Program(
+            IfExpression(NumericLiteral(3),
+                BlockStatement(
+                    TakeStatement(NumericLiteral(5))),
+                BlockStatement(
+                    TakeStatement(
+                        IfExpression(NumericLiteral(5),
+                            BlockStatement(
+                                TakeStatement(NumericLiteral(5))),
+                            BlockStatement(
+                                TakeStatement(NumericLiteral(6))))))))))
+});

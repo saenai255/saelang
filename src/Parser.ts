@@ -1,4 +1,5 @@
-import AST, { BinaryExpression, BlockStatement, BooleanLiteral, Expression, ExpressionStatement, FunctionExpression, Identifier, IfExpression, Literal, NumericLiteral, Statement, StringLiteral, TakeStatement, TypedArgument, TypeExpression } from './AST';
+import AST, { AssignmentStatement, BinaryExpression, BlockStatement, BooleanLiteral, Expression, ExpressionStatement, FunctionCall, FunctionExpression, Identifier, IfExpression, Literal, NumericLiteral, ReturnStatement, Statement, StringLiteral, TakeStatement, Type, TypedArgument, TypeExpression, VariableDeclarationStatement } from './AST';
+import { TypeEmpty } from './ASTUtils';
 import { SaeError, SaeSyntaxError } from './Error'
 import { Token, TokenDetails, Tokenizer } from './Tokenizer'
 
@@ -40,6 +41,19 @@ export class Parser {
     this._lookahead = this._tokenizer.getNextToken();
 
     return this.Program();
+  }
+
+  _lookaheadForwards(steps: number = 1): TokenDetails | null {
+    let tokenizer = new Tokenizer()
+    tokenizer._cursor = this._tokenizer._cursor
+    tokenizer._string = this._tokenizer._string
+
+
+    for (let i = 0; i < steps - 1; i++) {
+      tokenizer.getNextToken();
+    }
+
+    return tokenizer.getNextToken()
   }
 
   /**
@@ -92,6 +106,14 @@ export class Parser {
       case '{': return this.BlockStatement()
       case 'take': return this.TakeStatement()
       case 'if': return this.IfExpression()
+      case 'fn': return this.FunctionExpression()
+      case 'return': return this.ReturnStatement()
+      case 'let_mut': // fallthrough
+      case 'let': return this.VariableDeclarationStatement()
+      case 'identifier':
+        if (['simple_assign', 'complex_assign'].includes(this._lookaheadForwards().token?.type)) {
+          return this.AssignmentStatement()
+        } // fallthrough
       default: return this.ExpressionStatement()
     }
   }
@@ -124,32 +146,65 @@ export class Parser {
     // Implement here...
   }
 
-  /**
-   * FunctionDeclaration
-   *   : 'def' Identifier '(' OptFormalParameterList ')' BlockStatement
-   *   ;
-   */
+
+  FunctionCall(): FunctionCall {
+    const func = this.Expression();
+    const params = []
+    this._eat('(')
+
+    const firstParam = optional(() => this.Expression());
+    if (firstParam) {
+      params.push(firstParam);
+    }
+
+    while (this._lookahead.token.type !== ')') {
+      this._eat(',');
+      params.push(this.Expression())
+    }
+    this._eat(')')
+
+    return {
+      type: 'FunctionCall',
+      expression: func,
+      params
+    }
+  }
+
+
   FunctionExpression(): FunctionExpression {
     this._eat('fn');
-    const { name } = optional(() => this.Identifier());
+    const identifier = optional(() => this.Identifier());
     this._eat('(');
     const params = this.FormalParameterList();
     this._eat(')')
-    const retType = this.TypeExpression(false);
+    const retType = this._Type(false) || TypeEmpty();
     const block = this.BlockStatement();
 
     return {
       type: 'FunctionExpression',
       arguments: params,
-      name: name,
+      name: identifier ? identifier.name : null,
       body: block,
       returnType: retType
     }
   }
 
-  TypeExpression(required = true): TypeExpression | null {
+  _Type(required = true): Type {
+    try {
+      const t = this._eat('primitive')
+      return {
+        type: 'PrimitiveType',
+        value: t.value,
+      }
+    } catch (e) {
+      return this.TypeExpression(required)
+    }
+  }
+
+  TypeExpression(required = true): TypeExpression {
     try {
       return {
+        type: 'TypeExpression',
         genericTypes: [],
         implements: [],
         rootModule: 'main',
@@ -174,13 +229,15 @@ export class Parser {
   FormalParameterList(): TypedArgument[] {
     const params: TypedArgument[] = [];
 
-    while (this._lookahead.token.type === 'identifier') {
+    while (this._lookahead.token.type === 'identifier' || this._lookahead.token.type === 'primitive') {
+      const name = this.Identifier().name;
+      const argType = this._Type()
       params.push({
         type: 'TypedArgument',
         mutable: false,
-        name: this.Identifier().name,
-        argType: this.TypeExpression()
-      });
+        name,
+        argType,
+      })
 
       try {
         this._eat(',')
@@ -197,8 +254,18 @@ export class Parser {
    *   : 'return' OptExpression ';'
    *   ;
    */
-  ReturnStatement() {
-    // Implement here...
+  ReturnStatement(): ReturnStatement {
+    this._eat('return');
+    const expr = this.Expression();
+
+    if (!['IfExpression', 'FunctionExpression'].includes(expr.type)) {
+      this._eat(';')
+    }
+
+    return {
+      type: 'ReturnStatement',
+      value: expr
+    }
   }
 
   /**
@@ -347,7 +414,7 @@ export class Parser {
    */
   VariableInitializer() {
     this._eat('SIMPLE_ASSIGN');
-    return this.AssignmentExpression();
+    return this.AssignmentStatement();
   }
 
   /**
@@ -392,28 +459,53 @@ export class Parser {
     }
   }
 
-  /**
-   * Expression
-   *   : AssignmentExpression
-   *   ;
-   */
+
+  __lastExpr = null;
   Expression(): Expression {
     switch (this._lookahead.token.type) {
-      case 'if': return this.IfExpression()
-      case 'identifier': return this.Identifier()
       default:
-        return this.AdditiveExpression();
+        this.__lastExpr = this.AdditiveExpression();
+        return this.__lastExpr;
     }
   }
 
-  /**
-   * AssignmentExpression
-   *   : LogicalORExpression
-   *   | LeftHandSideExpression AssignmentOperator AssignmentExpression
-   *   ;
-   */
-  AssignmentExpression() {
-    // Implement here...
+  VariableDeclarationStatement(): VariableDeclarationStatement {
+    const mutable = either(() => this._eat('let_mut'), () => this._eat('let')).type === 'let_mut';
+    const identifier = this.Identifier()
+
+    const type: Type | null = this._Type(false);
+
+    let initializer: Expression | null = null;
+    if (optional(() => this._eat('simple_assign'))) {
+      initializer = this.Expression();
+    }
+    this._eat(';');
+
+    if (initializer?.type === 'FunctionExpression' && initializer.name === null) {
+      initializer.name = identifier.name;
+    }
+
+    return {
+      type: 'VariableDeclarationStatement',
+      left: identifier,
+      right: initializer,
+      ttype: type,
+      mutable
+    }
+  }
+
+  AssignmentStatement(): AssignmentStatement {
+    const identifier = this.Identifier()
+    const assignmentOperator = either(() => this._eat('simple_assign'), () => this._eat('complex_assign'))
+    const expression = this.Expression();
+    this._eat(';');
+
+    return {
+      left: identifier,
+      operator: assignmentOperator.value,
+      right: expression,
+      type: 'AssignmentStatement',
+    }
   }
 
   /**
@@ -651,19 +743,16 @@ export class Parser {
     // Implement here...
   }
 
-  /**
-   * PrimaryExpression
-   *   : Literal
-   *   | ParenthesizedExpression
-   *   | Identifier
-   *   | ThisExpression
-   *   | NewExpression
-   *   ;
-   */
   PrimaryExpression(): Expression {
+    // if (this._lookahead.token.type === '(') {
+    //   return this.FunctionCall()
+    // }
+
     switch (this._lookahead.token.type) {
-      case '(':
-        return this.ParenthesizedExpression();
+      case '(': return this.ParenthesizedExpression();
+      case 'if': return this.IfExpression()
+      case 'identifier': return this.Identifier()
+      case 'fn': return this.FunctionExpression()
       default:
         return this.Literal();
     }

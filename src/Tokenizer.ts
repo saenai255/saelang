@@ -23,12 +23,20 @@ const Spec: [RegExp, string | null][] = [
 
   // Symbols
   [/^;/, ';'],
+  [/^,/, ','],
   [/^\{/, '{'],
   [/^\}/, '}'],
   [/^\(/, '('],
   [/^\)/, ')'],
   [/^\[/, '['],
   [/^\]/, ']'],
+  [/^\./, '.'],
+
+  [/^=/, 'simple_assign'],
+  [/^[\*\/\+\-]=/, 'complex_assign'],
+
+  [/^let mut/, 'let_mut'],
+  [/^let/, 'let'],
 
   // Keywords
   [/^if/, 'if'],
@@ -36,6 +44,22 @@ const Spec: [RegExp, string | null][] = [
   [/^return/, 'return'],
   [/^take/, 'take'],
   [/^fn/, 'fn'],
+
+  [/^i8/, 'primitive'],
+  [/^i16/, 'primitive'],
+  [/^i32/, 'primitive'],
+  [/^i64/, 'primitive'],
+  [/^i128/, 'primitive'],
+  [/^u8/, 'primitive'],
+  [/^u16/, 'primitive'],
+  [/^u32/, 'primitive'],
+  [/^u64/, 'primitive'],
+  [/^u128/, 'primitive'],
+  [/^u128/, 'primitive'],
+  [/^f32/, 'primitive'],
+  [/^f64/, 'primitive'],
+  [/^bool/, 'primitive'],
+  [/^str/, 'primitive'],
 
   // Math
   [/^[+\-]/, 'additive_operator'],
@@ -45,7 +69,8 @@ const Spec: [RegExp, string | null][] = [
   [/^\d+/, 'number'],
 
   // Bools
-  [/^(false|true)/, 'bool'],
+  [/^false/, 'bool'],
+  [/^true/, 'bool'],
 
   // Strings
   [/^"[^"]*"/, 'string'],
@@ -61,8 +86,8 @@ const Spec: [RegExp, string | null][] = [
  * Lazily pulls a token from a stream.
  */
 export class Tokenizer {
-  private _string: string;
-  private _cursor: number;
+  _string: string;
+  _cursor: number;
 
   /**
    * Initializes the string.
