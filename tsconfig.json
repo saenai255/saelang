@@ -1,7 +1,7 @@
 {
     "compilerOptions": {
-        "module": "commonjs",
-        "allowJs": true,
+        "module": "CommonJS",
+        "allowJs": false,
         "lib": [
             "DOM",
             "ES2021"
@@ -11,9 +11,11 @@
         "pretty": true,
         "suppressImplicitAnyIndexErrors": true,
         "noImplicitAny": false,
-        "target": "ES2021"
+        "target": "ES2021",
+        "outDir": "dist"
     },
     "exclude": [
-        "node_modules"
+        "node_modules",
+        "tests"
     ]
 }

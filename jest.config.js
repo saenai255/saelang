@@ -1,12 +1,12 @@
 /** @type {import('ts-jest/dist/types').InitialOptionsTsJest} */
 module.exports = {
   transform: {
-    '^.+\\.(t|j)sx?$': '@swc-node/jest',
+    '^.+\\.(t|j)sx?$': '@swc/jest',
   },
   testEnvironment: 'node',
 
   globals: {
-    '@swc-node': {
+    '@swc': {
       isolatedModules: true,
     }
   }

@@ -1,2 +1,4 @@
 # SaeLang
-Pronounced like *say*.
+Pronounced like *saylang*.
+
+## How to In

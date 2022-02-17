@@ -32,8 +32,7 @@ const Spec: [RegExp, string | null][] = [
   [/^\~\|\|/, 'logical_misc_operator'], // xor
 
   // Symbols
-  [/^;/, ';'],
-  [/^,/, ','],
+
   [/^\{/, '{'],
   [/^\}/, '}'],
   [/^\(/, '('],
@@ -41,6 +40,8 @@ const Spec: [RegExp, string | null][] = [
   [/^\[/, '['],
   [/^\]/, ']'],
   [/^\./, '.'],
+  [/^;/, ';'],
+  [/^,/, ','],
 
   [/^=/, 'simple_assign'],
   [/^[\*\/\+\-]=/, 'complex_assign'],
