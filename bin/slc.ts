@@ -17,18 +17,7 @@ function main(argv) {
   // Direct expression:
   ast = parser.parse(
     `
-fn factorial(nr i32) i32 {
-  return if nr == 0 {
-    take 1;
-  } else {
-    take nr * factorial(nr - 1);
-  }
-}
-
-fn main() {
-  let my_number = 5;
-  std.printf("%d! = %d\n", my_number, my_number.factorial());
-}
+    pub let mut i32 x;
     `
   );
 

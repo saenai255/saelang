@@ -1,4 +1,4 @@
-import { BinaryExpression, BlockStatement, DeferStatement, ExpressionStatement, FireStatement, FunctionCall, Identifier, MemberExpression, NumericLiteral, Program, ReturnStatement, StringLiteral } from "../src/ASTUtils"
+import { BinaryExpression, DeferStatement, ExpressionStatement, FunctionCall, Identifier, MemberExpression, NumericLiteral, Program, ReturnStatement } from "../src/ASTUtils"
 import { expectTree } from "./util"
 
 describe('DeferStatement', () => {

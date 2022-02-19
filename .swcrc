@@ -1,0 +1,15 @@
+{
+    "module": {
+        "type": "commonjs",
+        "strict": true
+    },
+    "jsc": {
+        "parser": {
+            "syntax": "typescript"
+        },
+        "target": "es2021"
+    },
+    "minify": true,
+    "sourceMaps": false,
+    "inlineSourcesContent": false
+}

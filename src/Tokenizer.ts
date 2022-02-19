@@ -57,6 +57,13 @@ const Spec: [RegExp, string | null][] = [
   [/^fn/, 'fn'],
   [/^defer/, 'defer'],
   [/^fire/, 'fire'],
+  [/^loop over/, 'loop_over'],
+  [/^loop/, 'loop'],
+  [/^as/, 'as'],
+  [/^break/, 'break'],
+  [/^continue/, 'continue'],
+  [/^use/, 'use'],
+  [/^pub/, 'pub'],
 
   [/^i8/, 'primitive'],
   [/^i16/, 'primitive'],

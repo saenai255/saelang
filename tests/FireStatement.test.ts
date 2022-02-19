@@ -1,4 +1,4 @@
-import { BlockStatement, ExpressionStatement, FireStatement, FunctionCall, Identifier, Program, StringLiteral } from "../src/ASTUtils"
+import { FireStatement, FunctionCall, Identifier, Program } from "../src/ASTUtils"
 import { expectTree } from "./util"
 
 describe('FireStatement', () => {

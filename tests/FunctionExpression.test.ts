@@ -1,4 +1,4 @@
-import { BinaryExpression, BlockStatement, FunctionExpression, Identifier, IfExpression, NumericLiteral, Program, ReturnStatement, TakeStatement, TypedArgument, TypeEmpty, TypePrimitive } from "../src/ASTUtils"
+import { BinaryExpression, BlockExpression, FunctionExpression, Identifier, IfExpression, NumericLiteral, Program, ReturnStatement, TakeStatement, TypedArgument, TypeEmpty, TypePrimitive } from "../src/ASTUtils"
 import { expectTree } from "./util"
 
 describe('FunctionExpression', () => {
@@ -9,7 +9,8 @@ describe('FunctionExpression', () => {
                 name: 'empty',
                 arguments: [],
                 returnType: TypeEmpty(),
-                body: BlockStatement()
+                body: BlockExpression(),
+                public: false
             }))))
 
     test(`with return type`, () => expectTree(
@@ -19,7 +20,8 @@ describe('FunctionExpression', () => {
                 name: 'empty',
                 arguments: [],
                 returnType: TypePrimitive('i32'),
-                body: BlockStatement()
+                body: BlockExpression(),
+                public: false
             }))))
 
     test(`with body`, () => expectTree(
@@ -31,9 +33,10 @@ describe('FunctionExpression', () => {
                 name: 'empty',
                 arguments: [],
                 returnType: TypeEmpty(),
-                body: BlockStatement(
+                body: BlockExpression(
                     ReturnStatement(
-                        NumericLiteral(1)))
+                        NumericLiteral(1))),
+                public: false
             }))))
 
     test(`with single param`, () => expectTree(
@@ -45,7 +48,8 @@ describe('FunctionExpression', () => {
                     TypedArgument('name', TypePrimitive('str'))
                 ],
                 returnType: TypeEmpty(),
-                body: BlockStatement()
+                body: BlockExpression(),
+                public: false
             }))))
 
     test(`with multiple params`, () => expectTree(
@@ -58,11 +62,12 @@ describe('FunctionExpression', () => {
                     TypedArgument('age', TypePrimitive('u8'))
                 ],
                 returnType: TypeEmpty(),
-                body: BlockStatement()
+                body: BlockExpression(),
+                public: false
             }))))
 
     test(`complex function`, () => expectTree(
-        `fn foo(nr i32, double bool) i32 {
+        `pub fn foo(nr i32, double bool) i32 {
             return if double {
                 take nr * 2;
             } else {
@@ -77,21 +82,22 @@ describe('FunctionExpression', () => {
                     TypedArgument('double', TypePrimitive('bool'))
                 ],
                 returnType: TypePrimitive('i32'),
-                body: BlockStatement(
+                body: BlockExpression(
                     ReturnStatement(
                         IfExpression(
                             Identifier('double'),
-                            BlockStatement(
+                            BlockExpression(
                                 TakeStatement(
                                     BinaryExpression(
                                         Identifier('nr'),
                                         '*',
                                         NumericLiteral(2)))),
-                            BlockStatement(
+                            BlockExpression(
                                 TakeStatement(
                                     BinaryExpression(
                                         Identifier('nr'),
                                         '*',
-                                        NumericLiteral(10)))))))
+                                        NumericLiteral(10))))))),
+                public: true
             }))))
 })

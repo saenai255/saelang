@@ -1,27 +1,6 @@
-export default interface AST {
+export interface AST {
     type: 'Program';
     body: Statement[];
-}
-
-export type Primitives =
-    | 'i8'
-    | 'i16'
-    | 'i32'
-    | 'i64'
-    | 'i128'
-    | 'u8'
-    | 'u16'
-    | 'u32'
-    | 'u64'
-    | 'u128'
-    | 'str'
-    | 'bool'
-    | 'f32'
-    | 'f64'
-    ;
-export interface Primitive {
-    type: 'PrimitiveType',
-    value: Primitives
 }
 
 export interface StringLiteral {
@@ -56,18 +35,14 @@ export interface BinaryExpression {
     | '!='
     | '||'
     | '&&'
-    | '~||'
-    | '~&&'
-    | '!||'
-    | '!&&'
 }
 
-export interface FunctionExpression {
-    type: 'FunctionExpression';
+export interface FunctionStatement {
+    type: 'FunctionStatement';
     name: string | null;
     returnType: Type;
     arguments: TypedArgument[];
-    body: BlockExpression;
+    body: BlockStatement;
     public: boolean;
 }
 
@@ -88,7 +63,7 @@ export interface VariableDeclarationStatement {
     type: 'VariableDeclarationStatement'
     left: Identifier;
     right: Expression | null;
-    ttype: Type | null;
+    ttype: Type;
     public: boolean;
     mutable: boolean;
 }
@@ -104,29 +79,12 @@ export interface FunctionCall {
     params: Expression[];
 }
 
-export type Type =
-    | TypeEmpty
-    | Primitive
-    | TypeExpression
-
-export interface TypeEmpty {
-    type: 'TypeEmpty'
-}
-
-export interface TypeExpression {
-    type: 'TypeExpression';
-    rootModule: string;
-    submodules: string[];
-    name: string;
-    genericTypes: Type[];
-    implements: Type[];
-}
+export type Type = string
 
 export interface TypedArgument {
     type: 'TypedArgument';
     argType: Type;
     name: string;
-    mutable: boolean;
 }
 
 export interface Identifier {
@@ -134,16 +92,18 @@ export interface Identifier {
     name: string;
 }
 
-export interface LoopExpression {
-    type: 'LoopExpression';
-    condition: Expression;
-    body: BlockExpression;
+export interface ForStatement {
+    type: 'ForStatement';
+    init: Statement | null;
+    condition: Expression | null;
+    step: Statement
+    body: BlockStatement;
 }
-export interface LoopOverExpression {
-    type: 'LoopOverExpression';
-    iterable: Expression;
-    alias: Identifier;
-    body: BlockExpression;
+
+export interface WhileStatement {
+    type: 'WhileStatement';
+    condition: Expression;
+    body: BlockStatement;
 }
 
 export type Literal =
@@ -154,36 +114,31 @@ export type Literal =
 export type Expression =
     | Literal
     | BinaryExpression
-    | IfExpression
+    | IfStatement
     | Identifier
-    | FunctionExpression
+    | FunctionStatement
     | FunctionCall
     | MemberExpression
     | IndexExpression
-    | LoopExpression
-    | LoopOverExpression
-    | BlockExpression
+    | ForStatement
+    | WhileStatement
+    | BlockStatement
 
 export interface ExpressionStatement {
     type: 'ExpressionStatement',
     expression: Expression;
 }
 
-export interface BlockExpression {
-    type: 'BlockExpression',
+export interface BlockStatement {
+    type: 'BlockStatement',
     body: Statement[];
 }
 
-export interface IfExpression {
-    type: 'IfExpression',
-    then: BlockExpression;
-    else?: BlockExpression;
+export interface IfStatement {
+    type: 'IfStatement',
+    then: BlockStatement;
+    else?: BlockStatement;
     condition: Expression;
-}
-
-export interface TakeStatement {
-    type: 'TakeStatement';
-    value: Expression;
 }
 
 export interface EmptyStatement {
@@ -203,30 +158,35 @@ export interface ReturnStatement {
     value: Expression;
 }
 
-export interface DeferStatement {
-    type: 'DeferStatement';
-    stmt: Statement;
-}
+export class StatementList {
+    type: 'StatementList' = 'StatementList'
+    private stmts: Statement[] = []
+    private deferred: Statement[] = []
 
-export interface FireStatement {
-    type: 'FireStatement';
-    functionCall: FunctionCall;
+    constructor(public node: Node) { }
+
+    push(stmt: Statement) {
+        this.stmts.push(stmt)
+    }
+
+    defer(stmt: Statement) {
+        this.deferred.push(stmt)
+    }
+
+    get statements(): Statement[] {
+        return [...this.stmts, ...this.deferred.reverse()]
+    }
 }
 
 export type Statement =
     | ExpressionStatement
-    | BlockExpression
+    | BlockStatement
     | EmptyStatement
-    | TakeStatement
     | ReturnStatement
-    | IfExpression
-    | LoopExpression
-    | FunctionExpression
+    | IfStatement
+    | FunctionStatement
     | AssignmentStatement
     | VariableDeclarationStatement
-    | DeferStatement
-    | FireStatement
-    | LoopOverExpression
     | ContinueStatement
     | BreakStatement
 
@@ -234,3 +194,4 @@ export type Node =
     | Statement
     | Expression
     | AST
+    | StatementList

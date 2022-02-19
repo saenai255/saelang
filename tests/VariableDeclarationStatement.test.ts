@@ -1,4 +1,4 @@
-import { AssignmentStatement, BlockStatement, ExpressionStatement, Identifier, NumericLiteral, Program, StringLiteral, TypePrimitive, VariableDeclarationStatement } from "../src/ASTUtils"
+import { Identifier, NumericLiteral, Program, TypePrimitive, VariableDeclarationStatement } from "../src/ASTUtils"
 import { expectTree } from "./util"
 
 describe('VariableDeclarationStatement', () => {
@@ -9,7 +9,8 @@ describe('VariableDeclarationStatement', () => {
                 mutable: false,
                 left: Identifier('x'),
                 right: NumericLiteral(42),
-                ttype: null
+                ttype: null,
+                public: false
             }))))
 
     test('simple declaration with type and value', () => expectTree(
@@ -19,7 +20,8 @@ describe('VariableDeclarationStatement', () => {
                 mutable: false,
                 left: Identifier('x'),
                 right: NumericLiteral(42),
-                ttype: TypePrimitive('i32')
+                ttype: TypePrimitive('i32'),
+                public: false
             }))))
 
     test('simple declaration with type', () => expectTree(
@@ -29,7 +31,8 @@ describe('VariableDeclarationStatement', () => {
                 mutable: false,
                 left: Identifier('x'),
                 right: null,
-                ttype: TypePrimitive('i32')
+                ttype: TypePrimitive('i32'),
+                public: false
             }))))
 
     test('simple mutable declaration type', () => expectTree(
@@ -39,6 +42,7 @@ describe('VariableDeclarationStatement', () => {
                 mutable: true,
                 left: Identifier('x'),
                 right: null,
-                ttype: TypePrimitive('i32')
+                ttype: TypePrimitive('i32'),
+                public: false
             }))))
 })

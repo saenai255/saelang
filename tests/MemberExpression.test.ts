@@ -1,4 +1,4 @@
-import { BinaryExpression, ExpressionStatement, FunctionCall, Identifier, MemberExpression, NumericLiteral, Program } from "../src/ASTUtils"
+import { ExpressionStatement, FunctionCall, Identifier, MemberExpression, Program } from "../src/ASTUtils"
 import { expectTree } from "./util"
 
 describe('MemberExpression', () => {

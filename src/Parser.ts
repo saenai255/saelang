@@ -1,4 +1,4 @@
-import AST, { AssignmentStatement, BinaryExpression, BlockStatement, BooleanLiteral, DeferStatement, Expression, ExpressionStatement, FireStatement, FunctionCall, FunctionExpression, Identifier, IfExpression, IndexExpression, Literal, MemberExpression, NumericLiteral, ReturnStatement, Statement, StringLiteral, TakeStatement, Type, TypedArgument, TypeExpression, VariableDeclarationStatement } from './AST';
+import AST, { AssignmentStatement, BinaryExpression, BlockExpression, BooleanLiteral, BreakStatement, ContinueStatement, DeferStatement, Expression, ExpressionStatement, FireStatement, FunctionCall, FunctionExpression, Identifier, IfExpression, IndexExpression, Literal, LoopExpression, LoopOverExpression, MemberExpression, NumericLiteral, ReturnStatement, Statement, StringLiteral, TakeStatement, Type, TypedArgument, TypeExpression, VariableDeclarationStatement } from './AST';
 import { TypeEmpty } from './ASTUtils';
 import { SaeError, SaeSyntaxError } from './Error'
 import { Token, TokenDetails, Tokenizer } from './Tokenizer'
@@ -43,7 +43,7 @@ export class Parser {
     return this.Program();
   }
 
-  _lookaheadForwards(steps: number = 1): TokenDetails | null {
+  private _lookaheadForwards(steps: number = 1): TokenDetails | null {
     let tokenizer = new Tokenizer()
     tokenizer._cursor = this._tokenizer._cursor
     tokenizer._string = this._tokenizer._string
@@ -88,7 +88,7 @@ export class Parser {
   /**
    * Statement
    *   : ExpressionStatement
-   *   | BlockStatement
+   *   | BlockExpression
    *   | EmptyStatement
    *   | VariableStatement
    *   | IfStatement
@@ -101,17 +101,23 @@ export class Parser {
    *   ;
    */
   Statement(): Statement {
+    const isPublic = !!optional(() => this._eat('pub'))
+
     switch (this._lookahead.token.type) {
       case ';': return this.EmptyStatement()
-      case '{': return this.BlockStatement()
+      case '{': return this.BlockExpression()
       case 'take': return this.TakeStatement()
       case 'if': return this.IfExpression()
-      case 'fn': return this.FunctionExpression()
+      case 'fn': return this.FunctionExpression(isPublic)
+      case 'loop_over': return this.LoopOverExpression()
+      case 'loop': return this.LoopExpression()
       case 'return': return this.ReturnStatement()
       case 'fire': return this.FireStatement()
+      case 'continue': return this.ContinueStatement()
+      case 'break': return this.BreakStatement()
       case 'defer': return this.DeferStatement()
       case 'let_mut': // fallthrough
-      case 'let': return this.VariableDeclarationStatement()
+      case 'let': return this.VariableDeclarationStatement(isPublic)
       case 'identifier':
         if (['simple_assign', 'complex_assign'].includes(this._lookaheadForwards().token?.type)) {
           return this.AssignmentStatement()
@@ -128,24 +134,6 @@ export class Parser {
     }
     this._eat(';')
     return out;
-  }
-
-  /**
-   * ClassDeclaration
-   *   : 'class' Identifier OptClassExtends BlockStatement
-   *   ;
-   */
-  ClassDeclaration() {
-    // Implement here...
-  }
-
-  /**
-   * ClassExtends
-   *   : 'extends' Identifier
-   *   ;
-   */
-  ClassExtends() {
-    // Implement here...
   }
 
   IndexExpression(expr: Expression): IndexExpression {
@@ -183,25 +171,26 @@ export class Parser {
   }
 
 
-  FunctionExpression(): FunctionExpression {
+  FunctionExpression(isPublic = false): FunctionExpression {
     this._eat('fn');
     const identifier = optional(() => this.Identifier());
     this._eat('(');
     const params = this.FormalParameterList();
     this._eat(')')
     const retType = this._Type(false) || TypeEmpty();
-    const block = this.BlockStatement();
+    const block = this.BlockExpression();
 
     return {
       type: 'FunctionExpression',
       arguments: params,
       name: identifier ? identifier.name : null,
       body: block,
-      returnType: retType
+      returnType: retType,
+      public: isPublic
     }
   }
 
-  _Type(required = true): Type {
+  private _Type(required = true): Type {
     try {
       const t = this._eat('primitive')
       return {
@@ -280,66 +269,7 @@ export class Parser {
     }
   }
 
-  /**
-   * IterationStatement
-   *   : WhileStatement
-   *   | DoWhileStatement
-   *   | ForStatement
-   *   ;
-   */
-  IterationStatement() {
-    switch (this._lookahead.token.type) {
-      case 'while':
-        return this.WhileStatement();
-      case 'do':
-        return this.DoWhileStatement();
-      case 'for':
-        return this.ForStatement();
-    }
-  }
-
-  /**
-   * WhileStatement
-   *  : 'while' '(' Expression ')' Statement
-   *  ;
-   */
-  WhileStatement() {
-    // Implement here...
-  }
-
-  /**
-   * DoWhileStatement
-   *   : 'do' Statement 'while' '(' Expression ')' ';'
-   */
-  DoWhileStatement() {
-    // Implement here...
-  }
-
-  /**
-   * ForStatement
-   *   : 'for' '(' OptForStatementInit ';' OptExpression ';' OptExpression ')' Statement
-   *   ;
-   */
-  ForStatement() {
-    // Implement here...
-  }
-
-  /**
-   * ForStatementInit
-   *   : VariableStatementInit
-   *   | Expression
-   *   ;
-   */
-  ForStatementInit() {
-    // Implement here...
-  }
-
-  /**
-   * BreakStatement
-   *   : 'break' ';'
-   *   ;
-   */
-  BreakStatement() {
+  BreakStatement(): BreakStatement {
     this._eat('break');
     this._eat(';');
     return {
@@ -352,7 +282,7 @@ export class Parser {
    *   : 'continue' ';'
    *   ;
    */
-  ContinueStatement() {
+  ContinueStatement(): ContinueStatement {
     this._eat('continue');
     this._eat(';');
     return {
@@ -362,21 +292,40 @@ export class Parser {
 
   /**
    * IfExpression
-   *   : 'if' '(' Expression ')' BlockStatement
-   *   | 'if' '(' Expression ')' BlockStatement 'else' BlockStatement
+   *   : 'if' '(' Expression ')' BlockExpression
+   *   | 'if' '(' Expression ')' BlockExpression 'else' BlockExpression
    *   ;
    */
   IfExpression(): IfExpression {
     this._eat('if');
     const conditionExpr = this.Expression();
-    const block = this.BlockStatement();
-    const otherwise = !!optional(() => this._eat('else')) ? this.BlockStatement() : null;
+    let block = this.Expression();
+    if (block.type !== 'BlockExpression') {
+      block = {
+        type: 'BlockExpression',
+        body: [{
+          type: 'TakeStatement',
+          value: block
+        }]
+      }
+    }
+
+    let otherwise = !!optional(() => this._eat('else')) ? this.Expression() : null;
+    if (otherwise !== null && otherwise.type !== 'BlockExpression') {
+      otherwise = {
+        type: 'BlockExpression',
+        body: [{
+          type: 'TakeStatement',
+          value: otherwise
+        }]
+      }
+    }
 
     return {
       type: 'IfExpression',
       condition: conditionExpr,
       then: block,
-      else: otherwise
+      else: otherwise as BlockExpression | null
     }
   }
 
@@ -427,16 +376,16 @@ export class Parser {
   }
 
   /**
-   * BlockStatement
+   * BlockExpression
    *   : '{' OptStatementList '}'
    *   ;
    */
-  BlockStatement(): BlockStatement {
+  BlockExpression(): BlockExpression {
     this._eat('{');
     const body = this._lookahead.token.type !== '}' ? this.StatementList('}') : [];
     this._eat('}');
     return {
-      type: 'BlockStatement',
+      type: 'BlockExpression',
       body
     }
   }
@@ -464,7 +413,7 @@ export class Parser {
     }
   }
 
-  VariableDeclarationStatement(): VariableDeclarationStatement {
+  VariableDeclarationStatement(isPublic = false): VariableDeclarationStatement {
     const mutable = either(() => this._eat('let_mut'), () => this._eat('let')).type === 'let_mut';
     const identifier = this.Identifier()
 
@@ -485,7 +434,8 @@ export class Parser {
       left: identifier,
       right: initializer,
       ttype: type,
-      mutable
+      mutable,
+      public: isPublic
     }
   }
 
@@ -734,17 +684,64 @@ export class Parser {
     // Implement here...
   }
 
+  LoopExpression(): LoopExpression {
+    this._eat('loop')
+    const saeTrue: BooleanLiteral = {
+      type: 'BooleanLiteral',
+      value: true
+    };
+
+    let condition: Expression = this.Expression();
+    let body: BlockExpression;
+
+    // loop {} should be interpreted as loop true {}
+    if (condition.type === 'BlockExpression' && this._lookahead?.token?.type !== '{') {
+      body = condition;
+      condition = saeTrue;
+    } else {
+      body = this.BlockExpression();
+    }
+
+
+    return {
+      type: 'LoopExpression',
+      body,
+      condition
+    }
+  }
+
+  LoopOverExpression(): LoopOverExpression {
+    this._eat('loop_over')
+    const iterable = this.Expression()
+    const alias = optional(() => {
+      this._eat('as')
+      return this.Identifier()
+    }) || {
+      type: 'Identifier',
+      name: 'it'
+    }
+
+    const body = this.BlockExpression();
+    return {
+      type: 'LoopOverExpression',
+      body,
+      alias,
+      iterable
+    }
+  }
+
   PrimaryExpression(): Expression {
-    // if (this._lookahead.token.type === '(') {
-    //   return this.FunctionCall()
-    // }
+    const isPublic = !!optional(() => this._eat('pub'))
 
     let expr: Expression
     switch (this._lookahead.token.type) {
       case '(': expr = this.ParenthesizedExpression(); break
+      case '{': expr = this.BlockExpression(); break
       case 'if': expr = this.IfExpression(); break
       case 'identifier': expr = this.Identifier(); break
-      case 'fn': expr = this.FunctionExpression(); break
+      case 'fn': expr = this.FunctionExpression(isPublic); break
+      case 'loop_over': expr = this.LoopOverExpression(); break
+      case 'loop': expr = this.LoopExpression(); break
       default:
         expr = this.Literal();
     }
@@ -827,18 +824,12 @@ export class Parser {
       case 'string':
         return this.StringLiteral();
       case 'bool':
-        return this.BooleanLiteral(Boolean(this._lookahead.token.value));
+        return this.BooleanLiteral();
     }
   }
 
-  /**
-   * BooleanLiteral
-   *   : 'true'
-   *   | 'false'
-   *   ;
-   */
-  BooleanLiteral(value): BooleanLiteral {
-    this._eat(value ? 'true' : 'false');
+  BooleanLiteral(): BooleanLiteral {
+    const value = this._eat('bool').value === 'true'
     return {
       type: 'BooleanLiteral',
       value,
