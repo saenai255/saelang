@@ -12,7 +12,8 @@
         "suppressImplicitAnyIndexErrors": true,
         "noImplicitAny": false,
         "target": "ES2021",
-        "outDir": "dist"
+        "outDir": "dist",
+        "strict": true
     },
     "exclude": [
         "node_modules",

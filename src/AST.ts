@@ -104,10 +104,29 @@ export interface FunctionCall {
     params: Expression[];
 }
 
+export type TypeFunction = {
+    type: 'TypeFunction';
+    paramTypes: Type[];
+    returnType: Type;
+    genericTypes: Type[];
+}
+
+export type TypePointer = {
+    type: 'TypePointer';
+    inner: Type;
+}
+
+export type TypeArray = {
+    type: 'TypeArray';
+    inner: Type
+}
+
 export type Type =
     | TypeEmpty
     | Primitive
     | TypeExpression
+    | TypeFunction
+    | TypePointer
 
 export interface TypeEmpty {
     type: 'TypeEmpty'
@@ -230,7 +249,7 @@ export type Statement =
     | ContinueStatement
     | BreakStatement
 
-export type Node =
+export type Component =
     | Statement
     | Expression
     | AST

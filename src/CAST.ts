@@ -163,7 +163,7 @@ export class StatementList {
     private stmts: Statement[] = []
     private deferred: Statement[] = []
 
-    constructor(public node: Node) { }
+    constructor(public node: Component) { }
 
     push(stmt: Statement) {
         this.stmts.push(stmt)
@@ -190,7 +190,7 @@ export type Statement =
     | ContinueStatement
     | BreakStatement
 
-export type Node =
+export type Component =
     | Statement
     | Expression
     | AST

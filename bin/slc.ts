@@ -1,6 +1,7 @@
 'use strict';
 
 import { exit } from "process";
+import CAssembler from "../src/CAssembler";
 import { SaeError } from "../src/Error";
 import { Parser } from "../src/Parser";
 
@@ -17,7 +18,9 @@ function main(argv) {
   // Direct expression:
   ast = parser.parse(
     `
-    pub let mut i32 x;
+    fn main() {
+      let a = if true 1 else 2;
+    }
     `
   );
 
@@ -30,7 +33,10 @@ function main(argv) {
     ast = parser.parse(src);
   }
 
-  console.log(JSON.stringify(ast, null, 2));
+  // console.log(JSON.stringify(ast, null, 2));
+  const casm = new CAssembler(ast)
+  casm.assembleCAST()
+  // console.dir(casm.functions, { depth: 4 })
 }
 
 try {
