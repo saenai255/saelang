@@ -18,31 +18,43 @@ export type Primitives =
     | 'bool'
     | 'f32'
     | 'f64'
+    | 'f128'
+    | 'c_int'
+    | 'c_char'
+    | 'c_float'
+    | 'c_double'
+    | 'c_bool'
     ;
 export interface Primitive {
+    parent?: Component;
     type: 'PrimitiveType',
     value: Primitives
 }
 
 export interface StringLiteral {
+    parent?: Component;
     type: 'StringLiteral';
     value: string;
 }
 
 export interface NumericLiteral {
+    parent?: Component;
     type: 'NumericLiteral';
     value: number;
 }
 
 export interface BooleanLiteral {
+    parent?: Component;
     type: 'BooleanLiteral';
     value: boolean;
 }
 
 export interface BinaryExpression {
+    parent?: Component;
     type: 'BinaryExpression';
     left: Expression;
     right: Expression;
+    ttype?: Type;
     operator:
     | '+'
     | '-'
@@ -67,13 +79,15 @@ export interface FunctionExpression {
     name: string | null;
     returnType: Type;
     arguments: TypedArgument[];
-    body: BlockExpression;
+    body: BlockStatement;
+    parent?: Component;
     public: boolean;
 }
 
 export interface MemberExpression {
     type: 'MemberExpression';
     expression: Expression;
+    parent?: Component;
     property: Identifier;
 }
 
@@ -81,6 +95,7 @@ export interface AssignmentStatement {
     type: 'AssignmentStatement'
     operator: '=' | '+=' | '-=' | '*=' | '/=';
     left: Identifier;
+    parent?: Component;
     right: Expression;
 }
 
@@ -90,18 +105,23 @@ export interface VariableDeclarationStatement {
     right: Expression | null;
     ttype: Type | null;
     public: boolean;
+    parent?: Component;
     mutable: boolean;
 }
 
 export interface IndexExpression {
     type: 'IndexExpression';
     expression: Expression;
+    parent?: Component;
     index: Expression;
+    ttype?: Type;
 }
 export interface FunctionCall {
     type: 'FunctionCall',
     expression: Expression;
+    parent?: Component;
     params: Expression[];
+    ttype?: Type;
 }
 
 export type TypeFunction = {
@@ -129,6 +149,7 @@ export type Type =
     | TypePointer
 
 export interface TypeEmpty {
+    parent?: Component;
     type: 'TypeEmpty'
 }
 
@@ -138,6 +159,7 @@ export interface TypeExpression {
     submodules: string[];
     name: string;
     genericTypes: Type[];
+    parent?: Component;
     implements: Type[];
 }
 
@@ -145,24 +167,29 @@ export interface TypedArgument {
     type: 'TypedArgument';
     argType: Type;
     name: string;
+    parent?: Component;
     mutable: boolean;
 }
 
 export interface Identifier {
     type: 'Identifier';
+    parent?: Component;
     name: string;
+    ttype?: Type;
 }
 
-export interface LoopExpression {
-    type: 'LoopExpression';
+export interface LoopStatement {
+    type: 'LoopStatement';
     condition: Expression;
-    body: BlockExpression;
+    parent?: Component;
+    body: BlockStatement;
 }
-export interface LoopOverExpression {
-    type: 'LoopOverExpression';
+export interface LoopOverStatement {
+    type: 'LoopOverStatement';
     iterable: Expression;
     alias: Identifier;
-    body: BlockExpression;
+    parent?: Component;
+    body: BlockStatement;
 }
 
 export type Literal =
@@ -179,18 +206,26 @@ export type Expression =
     | FunctionCall
     | MemberExpression
     | IndexExpression
-    | LoopExpression
-    | LoopOverExpression
     | BlockExpression
 
 export interface ExpressionStatement {
     type: 'ExpressionStatement',
     expression: Expression;
+    parent?: Component;
 }
 
 export interface BlockExpression {
     type: 'BlockExpression',
     body: Statement[];
+    parent?: Component;
+    ttype?: Type;
+}
+
+export interface BlockStatement {
+    type: 'BlockStatement',
+    body: Statement[];
+    parent?: Component;
+    ttype?: Type;
 }
 
 export interface IfExpression {
@@ -198,54 +233,73 @@ export interface IfExpression {
     then: BlockExpression;
     else?: BlockExpression;
     condition: Expression;
+    parent?: Component;
+    ttype?: Type;
+}
+
+export interface IfStatement {
+    type: 'IfStatement',
+    then: BlockStatement;
+    else?: BlockStatement;
+    condition: Expression;
+    parent?: Component;
+    ttype?: Type;
 }
 
 export interface TakeStatement {
     type: 'TakeStatement';
     value: Expression;
+    parent?: Component;
 }
 
 export interface EmptyStatement {
     type: 'EmptyStatement'
+    parent?: Component;
 }
 
 export interface ContinueStatement {
     type: 'ContinueStatement'
+    parent?: Component;
+
 }
 
 export interface BreakStatement {
+    parent?: Component;
     type: 'BreakStatement'
 }
 
 export interface ReturnStatement {
+    parent?: Component;
     type: 'ReturnStatement',
     value: Expression;
 }
 
 export interface DeferStatement {
+    parent?: Component;
     type: 'DeferStatement';
     stmt: Statement;
 }
 
 export interface FireStatement {
+    parent?: Component;
     type: 'FireStatement';
     functionCall: FunctionCall;
 }
 
 export type Statement =
     | ExpressionStatement
-    | BlockExpression
+    | BlockStatement
     | EmptyStatement
     | TakeStatement
     | ReturnStatement
-    | IfExpression
-    | LoopExpression
+    | IfStatement
+    | LoopStatement
     | FunctionExpression
     | AssignmentStatement
     | VariableDeclarationStatement
     | DeferStatement
     | FireStatement
-    | LoopOverExpression
+    | LoopOverStatement
     | ContinueStatement
     | BreakStatement
 

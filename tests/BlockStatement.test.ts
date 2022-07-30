@@ -1,4 +1,4 @@
-import { BlockExpression, ExpressionStatement, Program, StringLiteral } from "../src/ASTUtils"
+import { BlockExpression, BlockStatement, ExpressionStatement, Program, StringLiteral } from "../src/ASTUtils"
 import { expectTree } from "./util"
 
 describe('BlockExpression', () => {
@@ -7,7 +7,7 @@ describe('BlockExpression', () => {
             "helloo";
         }`,
         Program(
-            BlockExpression(
+            BlockStatement(
                 ExpressionStatement(
                     StringLiteral('helloo'))))))
 })

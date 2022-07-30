@@ -152,6 +152,7 @@ export class Tokenizer {
     }
 
     const str = this._string.slice(this._cursor);
+
     for (const [regexp, tokenType] of Spec) {
       const tokenValue = this._match(regexp, str);
       if (tokenValue == null) {

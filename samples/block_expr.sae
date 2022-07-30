@@ -1,0 +1,13 @@
+fn main() {
+    defer printf("this runs last\n");
+    let mut a = 1;
+    
+    let b = {
+        let x = a;
+        a = a + 5;
+
+        take x;
+    };
+
+    printf("a + b = %d\n", a + b);
+}

@@ -1,4 +1,4 @@
-import AST, { AssignmentStatement, BinaryExpression, BlockExpression, BooleanLiteral, BreakStatement, ContinueStatement, DeferStatement, Expression, ExpressionStatement, FireStatement, FunctionCall, FunctionExpression, Identifier, IfExpression, IndexExpression, Literal, LoopExpression, LoopOverExpression, MemberExpression, NumericLiteral, ReturnStatement, Statement, StringLiteral, TakeStatement, Type, TypedArgument, TypeExpression, VariableDeclarationStatement } from './AST';
+import AST, { AssignmentStatement, BinaryExpression, BlockExpression, BooleanLiteral, BreakStatement, ContinueStatement, DeferStatement, Expression, ExpressionStatement, FireStatement, FunctionCall, FunctionExpression, Identifier, IfExpression, IndexExpression, Literal, LoopStatement, LoopOverStatement, MemberExpression, NumericLiteral, ReturnStatement, Statement, StringLiteral, TakeStatement, Type, TypedArgument, TypeExpression, VariableDeclarationStatement, Component, IfStatement, BlockStatement } from './AST';
 import { TypeEmpty } from './ASTUtils';
 import { SaeError, SaeSyntaxError } from './Error'
 import { Token, TokenDetails, Tokenizer } from './Tokenizer'
@@ -64,10 +64,14 @@ export class Parser {
    *   ;
    */
   Program(): AST {
-    return {
+    const self: AST = {
       type: 'Program',
-      body: this.StatementList()
+      body: null
     }
+
+    self.body = this.StatementList(self, null)
+
+    return self;
   }
 
   /**
@@ -76,10 +80,10 @@ export class Parser {
    *   | StatementList Statement -> Statement Statement Statement Statement
    *   ;
    */
-  StatementList(stopLookahead: string = null): Statement[] {
-    const statementList = [this.Statement()];
+  StatementList(parent: Component, stopLookahead: string = null): Statement[] {
+    const statementList = [this.Statement(parent)];
     while (this._lookahead.token != null && this._lookahead.token.type !== stopLookahead) {
-      statementList.push(this.Statement());
+      statementList.push(this.Statement(parent));
     }
 
     return statementList;
@@ -100,118 +104,141 @@ export class Parser {
    *   | ClassDeclaration
    *   ;
    */
-  Statement(): Statement {
+  Statement(parent: Component): Statement {
     const isPublic = !!optional(() => this._eat('pub'))
 
     switch (this._lookahead.token.type) {
-      case ';': return this.EmptyStatement()
-      case '{': return this.BlockExpression()
-      case 'take': return this.TakeStatement()
-      case 'if': return this.IfExpression()
-      case 'fn': return this.FunctionExpression(isPublic)
-      case 'loop_over': return this.LoopOverExpression()
-      case 'loop': return this.LoopExpression()
-      case 'return': return this.ReturnStatement()
-      case 'fire': return this.FireStatement()
-      case 'continue': return this.ContinueStatement()
-      case 'break': return this.BreakStatement()
-      case 'defer': return this.DeferStatement()
+      case ';': return this.EmptyStatement(parent)
+      case '{': return this.BlockStatement(parent)
+      case 'take': return this.TakeStatement(parent)
+      case 'if': return this.IfStatement(parent)
+      case 'fn': return this.FunctionExpression(parent, isPublic)
+      case 'loop_over': return this.LoopOverStatement(parent)
+      case 'loop': return this.LoopStatement(parent)
+      case 'return': return this.ReturnStatement(parent)
+      case 'fire': return this.FireStatement(parent)
+      case 'continue': return this.ContinueStatement(parent)
+      case 'break': return this.BreakStatement(parent)
+      case 'defer': return this.DeferStatement(parent)
       case 'let_mut': // fallthrough
-      case 'let': return this.VariableDeclarationStatement(isPublic)
+      case 'let': return this.VariableDeclarationStatement(parent, isPublic)
       case 'identifier':
         if (['simple_assign', 'complex_assign'].includes(this._lookaheadForwards().token?.type)) {
-          return this.AssignmentStatement()
+          return this.AssignmentStatement(parent)
         } // fallthrough
-      default: return this.ExpressionStatement()
+      default: return this.ExpressionStatement(parent)
     }
   }
 
-  TakeStatement(): TakeStatement {
+  TakeStatement(parent: Component): TakeStatement {
     this._eat('take');
     const out: TakeStatement = {
       type: 'TakeStatement',
-      value: this.Expression()
+      value: null,
+      parent
     }
+
+    out.value = this.Expression(out)
     this._eat(';')
     return out;
   }
 
-  IndexExpression(expr: Expression): IndexExpression {
-    this._eat('[');
-    const index = this.Expression();
-    this._eat(']');
-
-    return {
+  IndexExpression(parent: Component, expr: Expression): IndexExpression {
+    const self: IndexExpression = {
       type: 'IndexExpression',
       expression: expr,
-      index
+      index: null,
+      parent
     }
+    this._eat('[');
+    self.index = this.Expression(self);
+    this._eat(']');
+
+    return self
   }
 
-  FunctionCall(func: Expression): FunctionCall {
+  FunctionCall(parent: Component, func: Expression): FunctionCall {
+    const self: FunctionCall = {
+      type: 'FunctionCall',
+      expression: func,
+      params: null,
+      parent
+    }
+
     const params = []
     this._eat('(')
 
-    const firstParam = optional(() => this.Expression());
+    const firstParam = optional(() => this.Expression(self));
     if (firstParam) {
       params.push(firstParam);
     }
 
     while (this._lookahead.token.type !== ')') {
       this._eat(',');
-      params.push(this.Expression())
+      params.push(this.Expression(self))
     }
     this._eat(')')
 
-    return {
-      type: 'FunctionCall',
-      expression: func,
-      params
-    }
+    self.params = params
+    self.expression.parent = self
+    return self
   }
 
 
-  FunctionExpression(isPublic = false): FunctionExpression {
-    this._eat('fn');
-    const identifier = optional(() => this.Identifier());
-    this._eat('(');
-    const params = this.FormalParameterList();
-    this._eat(')')
-    const retType = this._Type(false) || TypeEmpty();
-    const block = this.BlockExpression();
-
-    return {
+  FunctionExpression(parent: Component, isPublic = false): FunctionExpression {
+    const self: FunctionExpression = {
       type: 'FunctionExpression',
-      arguments: params,
-      name: identifier ? identifier.name : null,
-      body: block,
-      returnType: retType,
-      public: isPublic
+      arguments: null,
+      name: null,
+      body: null,
+      returnType: null,
+      public: isPublic,
+      parent
     }
+
+    this._eat('fn');
+    const identifier = optional(() => this.Identifier(self));
+    this._eat('(');
+    const params = this.FormalParameterList(self);
+    this._eat(')')
+    const retType = this._Type(self, false) || TypeEmpty(self);
+    const block = this.BlockStatement(self);
+
+    self.arguments = params
+    self.name = identifier ? identifier.name : null
+    self.body = block
+    self.returnType = retType
+
+    return self
   }
 
-  private _Type(required = true): Type {
+  private _Type(parent: Component, required = true): Type {
     try {
       const t = this._eat('primitive')
       return {
         type: 'PrimitiveType',
         value: t.value,
+        parent
       }
     } catch (e) {
-      return this.TypeExpression(required)
+      return this.TypeExpression(parent, required)
     }
   }
 
-  TypeExpression(required = true): TypeExpression {
+  TypeExpression(parent: Component, required = true): TypeExpression {
     try {
-      return {
+      const self: TypeExpression = {
         type: 'TypeExpression',
         genericTypes: [],
         implements: [],
         rootModule: 'main',
-        name: this.Identifier().name,
-        submodules: []
+        name: null,
+        submodules: [],
+        parent
       }
+
+      self.name = this.Identifier(self as any).name
+      return self
     } catch (e) {
       if (required) {
         throw e;
@@ -227,17 +254,18 @@ export class Parser {
    *   | FormalParameterList ',' Identifier
    *   ;
    */
-  FormalParameterList(): TypedArgument[] {
+  FormalParameterList(parent: Component): TypedArgument[] {
     const params: TypedArgument[] = [];
 
     while (this._lookahead.token.type === 'identifier' || this._lookahead.token.type === 'primitive') {
-      const name = this.Identifier().name;
-      const argType = this._Type()
+      const name = this.Identifier(parent).name;
+      const argType = this._Type(parent)
       params.push({
         type: 'TypedArgument',
         mutable: false,
         name,
         argType,
+        parent
       })
 
       try {
@@ -255,25 +283,29 @@ export class Parser {
    *   : 'return' OptExpression ';'
    *   ;
    */
-  ReturnStatement(): ReturnStatement {
+  ReturnStatement(parent: Component): ReturnStatement {
+    const self: ReturnStatement = {
+      type: 'ReturnStatement',
+      value: null,
+      parent
+    }
     this._eat('return');
-    const expr = this.Expression();
+    const expr = this.Expression(self);
 
     if (!['IfExpression', 'FunctionExpression'].includes(expr.type)) {
       this._eat(';')
     }
 
-    return {
-      type: 'ReturnStatement',
-      value: expr
-    }
+    self.value = expr
+    return self
   }
 
-  BreakStatement(): BreakStatement {
+  BreakStatement(parent: Component): BreakStatement {
     this._eat('break');
     this._eat(';');
     return {
       type: 'BreakStatement',
+      parent
     };
   }
 
@@ -282,11 +314,12 @@ export class Parser {
    *   : 'continue' ';'
    *   ;
    */
-  ContinueStatement(): ContinueStatement {
+  ContinueStatement(parent: Component): ContinueStatement {
     this._eat('continue');
     this._eat(';');
     return {
       type: 'ContinueStatement',
+      parent
     };
   }
 
@@ -296,37 +329,72 @@ export class Parser {
    *   | 'if' '(' Expression ')' BlockExpression 'else' BlockExpression
    *   ;
    */
-  IfExpression(): IfExpression {
+  IfExpression(parent: Component): IfExpression {
+    const self: IfExpression = {
+      type: 'IfExpression',
+      then: null,
+      else: null,
+      condition: null,
+      parent
+    }
     this._eat('if');
-    const conditionExpr = this.Expression();
-    let block = this.Expression();
+    const conditionExpr = this.Expression(self);
+    let block = this.Expression(self);
     if (block.type !== 'BlockExpression') {
       block = {
         type: 'BlockExpression',
         body: [{
           type: 'TakeStatement',
-          value: block
-        }]
+          value: block,
+          parent: null
+        }],
+        parent: self
       }
+
+      block.body[0].parent = block
     }
 
-    let otherwise = !!optional(() => this._eat('else')) ? this.Expression() : null;
+    let otherwise = !!optional(() => this._eat('else')) ? this.Expression(self) : null;
     if (otherwise !== null && otherwise.type !== 'BlockExpression') {
       otherwise = {
         type: 'BlockExpression',
         body: [{
           type: 'TakeStatement',
-          value: otherwise
-        }]
-      }
+          value: otherwise,
+          parent: null
+        }],
+        parent: self
+      };
+
+      (otherwise as any as BlockExpression).body[0].parent = otherwise
     }
 
-    return {
-      type: 'IfExpression',
-      condition: conditionExpr,
-      then: block,
-      else: otherwise as BlockExpression | null
+    self.condition = conditionExpr
+    self.then = block
+    self.else = otherwise as BlockExpression
+
+    return self
+  }
+
+  IfStatement(parent: Component): IfStatement {
+    const self: IfStatement = {
+      type: 'IfStatement',
+      then: null,
+      else: null,
+      condition: null,
+      parent
     }
+    this._eat('if');
+    const conditionExpr = this.Expression(self);
+    let block = this.BlockStatement(self);
+
+    let otherwise = !!optional(() => this._eat('else')) ? this.BlockStatement(self) : null;
+
+    self.condition = conditionExpr
+    self.then = block
+    self.else = otherwise
+
+    return self
   }
 
   /**
@@ -334,9 +402,9 @@ export class Parser {
    *   : SIMPLE_ASSIGN AssignmentExpression
    *   ;
    */
-  VariableInitializer() {
+  VariableInitializer(parent: Component) {
     this._eat('SIMPLE_ASSIGN');
-    return this.AssignmentStatement();
+    return this.AssignmentStatement(parent);
   }
 
   /**
@@ -344,35 +412,43 @@ export class Parser {
    *   : ';'
    *   ;
    */
-  EmptyStatement(): Statement {
+  EmptyStatement(parent: Component): Statement {
     this._eat(';');
     return {
       type: 'EmptyStatement',
+      parent
     };
   }
 
-  FireStatement(): FireStatement {
+  FireStatement(parent: Component): FireStatement {
     this._eat('fire')
-    const func = this.Expression()
+    const func = this.Expression(null)
     if (func.type !== 'FunctionCall') {
       throw new SaeSyntaxError('Expected FunctionCall but got ' + func.type, this._lookahead)
     }
     this._eat(';')
 
-    return {
+    const self: FireStatement = {
       type: 'FireStatement',
-      functionCall: func
+      functionCall: func,
+      parent
     }
+
+    self.functionCall.parent = self;
+    return self
   }
 
-  DeferStatement(): DeferStatement {
+  DeferStatement(parent: Component): DeferStatement {
     this._eat('defer')
-    const stmt = this.Statement();
 
-    return {
+    const self: DeferStatement = {
       type: 'DeferStatement',
-      stmt
+      stmt: null,
+      parent
     }
+
+    self.stmt = this.Statement(self);
+    return self
   }
 
   /**
@@ -380,14 +456,34 @@ export class Parser {
    *   : '{' OptStatementList '}'
    *   ;
    */
-  BlockExpression(): BlockExpression {
+  BlockExpression(parent: Component): BlockExpression {
     this._eat('{');
-    const body = this._lookahead.token.type !== '}' ? this.StatementList('}') : [];
-    this._eat('}');
-    return {
+
+    const self: BlockExpression = {
       type: 'BlockExpression',
-      body
+      body: [],
+      parent
     }
+
+    self.body = this._lookahead.token.type !== '}' ? this.StatementList(self, '}') : [];
+    this._eat('}');
+
+    return self
+  }
+
+  BlockStatement(parent: Component): BlockStatement {
+    this._eat('{');
+
+    const self: BlockStatement = {
+      type: 'BlockStatement',
+      body: [],
+      parent
+    }
+
+    self.body = this._lookahead.token.type !== '}' ? this.StatementList(self, '}') : [];
+    this._eat('}');
+
+    return self
   }
 
   /**
@@ -395,62 +491,69 @@ export class Parser {
    *   : Expression ';'
    *   ;
    */
-  ExpressionStatement(): ExpressionStatement {
-    const expr = this.Expression();
-    this._eat(';');
-
-    return {
+  ExpressionStatement(parent: Component): ExpressionStatement {
+    const self: ExpressionStatement = {
       type: 'ExpressionStatement',
-      expression: expr
+      expression: null,
+      parent
     }
+
+    self.expression = this.Expression(self);
+    this._eat(';');
+    return self
   }
 
 
-  Expression(): Expression {
+  Expression(parent: Component): Expression {
     switch (this._lookahead.token.type) {
       default:
-        return this.LogicalMiscExpression();
+        return this.LogicalMiscExpression(parent);
     }
   }
 
-  VariableDeclarationStatement(isPublic = false): VariableDeclarationStatement {
-    const mutable = either(() => this._eat('let_mut'), () => this._eat('let')).type === 'let_mut';
-    const identifier = this.Identifier()
-
-    const type: Type | null = this._Type(false);
-
-    let initializer: Expression | null = null;
-    if (optional(() => this._eat('simple_assign'))) {
-      initializer = this.Expression();
-    }
-    this._eat(';');
-
-    if (initializer?.type === 'FunctionExpression' && initializer.name === null) {
-      initializer.name = identifier.name;
-    }
-
-    return {
+  VariableDeclarationStatement(parent: Component, isPublic = false): VariableDeclarationStatement {
+    const self: VariableDeclarationStatement = {
       type: 'VariableDeclarationStatement',
-      left: identifier,
-      right: initializer,
-      ttype: type,
-      mutable,
-      public: isPublic
+      left: null,
+      right: null,
+      ttype: null,
+      mutable: null,
+      public: isPublic,
+      parent
     }
-  }
 
-  AssignmentStatement(): AssignmentStatement {
-    const identifier = this.Identifier()
-    const assignmentOperator = either(() => this._eat('simple_assign'), () => this._eat('complex_assign'))
-    const expression = this.Expression();
+    self.mutable = either(() => this._eat('let_mut'), () => this._eat('let')).type === 'let_mut';
+    self.left = this.Identifier(self)
+
+    self.ttype = this._Type(self, false);
+
+    if (optional(() => this._eat('simple_assign'))) {
+      self.right = this.Expression(self);
+    }
     this._eat(';');
 
-    return {
-      left: identifier,
-      operator: assignmentOperator.value,
-      right: expression,
-      type: 'AssignmentStatement',
+    if (self.right?.type === 'FunctionExpression' && self.right.name === null) {
+      self.right.name = self.left.name;
     }
+
+    return self
+  }
+
+  AssignmentStatement(parent: Component): AssignmentStatement {
+    const self: AssignmentStatement = {
+      left: null,
+      operator: null,
+      right: null,
+      type: 'AssignmentStatement',
+      parent
+    }
+
+    self.left = this.Identifier(self)
+    self.operator = either(() => this._eat('simple_assign'), () => this._eat('complex_assign')).value
+    self.right = this.Expression(self);
+    this._eat(';');
+
+    return self
   }
 
   /**
@@ -458,11 +561,12 @@ export class Parser {
    *   : IDENTIFIER
    *   ;
    */
-  Identifier(): Identifier {
+  Identifier(parent: Component): Identifier {
     const name = this._eat('identifier').value;
     return {
       type: 'Identifier',
       name,
+      parent
     };
   }
 
@@ -476,16 +580,16 @@ export class Parser {
    *   | LogicalORExpression LOGICAL_OR LogicalANDExpression
    *   ;
    */
-  LogicalMiscExpression() {
-    return this._BinaryExpression(
-      () => this.LogicalORExpression(),
+  LogicalMiscExpression(parent: Component) {
+    return this._BinaryExpression(parent,
+      () => this.LogicalORExpression(parent),
       'logical_misc_operator'
     )
   }
 
-  LogicalORExpression() {
-    return this._BinaryExpression(
-      () => this.LogicalANDExpression(),
+  LogicalORExpression(parent: Component) {
+    return this._BinaryExpression(parent,
+      () => this.LogicalANDExpression(parent),
       'logical_or_operator'
     )
   }
@@ -500,9 +604,9 @@ export class Parser {
    *   | LogicalANDExpression LOGICAL_AND EqualityExpression
    *   ;
    */
-  LogicalANDExpression() {
-    return this._BinaryExpression(
-      () => this.EqualityExpression(),
+  LogicalANDExpression(parent: Component) {
+    return this._BinaryExpression(parent,
+      () => this.EqualityExpression(parent),
       'logical_and_operator'
     )
   }
@@ -518,9 +622,9 @@ export class Parser {
    *   | EqualityExpression EQUALITY_OPERATOR RelationalExpression
    *   ;
    */
-  EqualityExpression() {
-    return this._BinaryExpression(
-      () => this.RelationalExpression(),
+  EqualityExpression(parent: Component) {
+    return this._BinaryExpression(parent,
+      () => this.RelationalExpression(parent),
       'equality_operator'
     )
   }
@@ -538,9 +642,9 @@ export class Parser {
    *   | RelationalExpression RELATIONAL_OPERATOR AdditiveExpression
    *   ;
    */
-  RelationalExpression(): Expression {
-    return this._BinaryExpression(
-      () => this.AdditiveExpression(),
+  RelationalExpression(parent: Component) {
+    return this._BinaryExpression(parent,
+      () => this.AdditiveExpression(parent),
       'relational_operator'
     )
   }
@@ -551,9 +655,9 @@ export class Parser {
    *   | AdditiveExpression ADDITIVE_OPERATOR MultiplicativeExpression
    *   ;
    */
-  AdditiveExpression(): Expression {
-    return this._BinaryExpression(
-      () => this.MultiplicativeExpression(),
+  AdditiveExpression(parent: Component) {
+    return this._BinaryExpression(parent,
+      () => this.MultiplicativeExpression(parent),
       'additive_operator'
     )
   }
@@ -564,24 +668,17 @@ export class Parser {
    *   | MultiplicativeExpression MULTIPLICATIVE_OPERATOR UnaryExpression
    *   ;
    */
-  MultiplicativeExpression(): Expression {
-    return this._BinaryExpression(
-      () => this.PrimaryExpression(),
+  MultiplicativeExpression(parent: Component) {
+    return this._BinaryExpression(parent,
+      () => this.PrimaryExpression(parent),
       'multiplicative_operator'
     );
   }
 
   /**
-   * Generic helper for LogicalExpression nodes.
-   */
-  _LogicalExpression(builderName, operatorToken) {
-    // Implement here...
-  }
-
-  /**
    * Generic binary expression.
    */
-  _BinaryExpression(getExpression: () => Expression, operatorToken: string): Expression {
+  _BinaryExpression(parent: Component, getExpression: () => Expression, operatorToken: string): Expression {
     let left = getExpression();
 
     while (this._lookahead.token && this._lookahead.token.type === operatorToken) {
@@ -594,6 +691,7 @@ export class Parser {
         operator,
         left,
         right,
+        parent
       };
     }
 
@@ -631,142 +729,106 @@ export class Parser {
   }
 
   /**
-   * Generic call expression helper.
-   *
-   * CallExpression
-   *   : Callee Arguments
-   *   ;
-   *
-   * Callee
-   *   : MemberExpression
-   *   | Super
-   *   | CallExpression
-   *   ;
-   */
-  _CallExpression(callee) {
-    // Implement here...
-  }
-
-  /**
-   * Arguments
-   *   : '(' OptArgumentList ')'
-   *   ;
-   */
-  Arguments() {
-    // Implement here...
-  }
-
-  /**
-   * ArgumentList
-   *   : AssignmentExpression
-   *   | ArgumentList ',' AssignmentExpression
-   *   ;
-   */
-  ArgumentList() {
-    // Implement here...
-  }
-
-  /**
    * MemberExpression
    *   : PrimaryExpression
    *   | MemberExpression '.' Identifier
    *   | MemberExpression '[' Expression ']'
    *   ;
    */
-  MemberExpression(expr: Expression): MemberExpression {
+  MemberExpression(parent: Component, expr: Expression): MemberExpression {
     this._eat('.')
-    const identifier = this.Identifier()
-    return {
+    const self: MemberExpression = {
       type: 'MemberExpression',
       expression: expr,
-      property: identifier
+      property: null,
+      parent
     }
+    self.property = this.Identifier(self)
+
+    return self;
+
     // Implement here...
   }
 
-  LoopExpression(): LoopExpression {
+  LoopStatement(parent: Component): LoopStatement {
+    const self: LoopStatement = {
+      type: 'LoopStatement',
+      body: null,
+      condition: null,
+      parent
+    }
+
     this._eat('loop')
     const saeTrue: BooleanLiteral = {
       type: 'BooleanLiteral',
-      value: true
+      value: true,
+      parent: self
     };
 
-    let condition: Expression = this.Expression();
-    let body: BlockExpression;
-
-    // loop {} should be interpreted as loop true {}
-    if (condition.type === 'BlockExpression' && this._lookahead?.token?.type !== '{') {
-      body = condition;
-      condition = saeTrue;
-    } else {
-      body = this.BlockExpression();
-    }
+    let condition: Expression = this.Expression(self);
+    let body = this.BlockStatement(self);
 
 
-    return {
-      type: 'LoopExpression',
-      body,
-      condition
-    }
+    self.body = body
+    self.condition = condition
+
+    return self
   }
 
-  LoopOverExpression(): LoopOverExpression {
+  LoopOverStatement(parent: Component): LoopOverStatement {
+    const self: LoopOverStatement = {
+      type: 'LoopOverStatement',
+      body: null,
+      alias: null,
+      iterable: null,
+      parent
+    }
+
     this._eat('loop_over')
-    const iterable = this.Expression()
+    const iterable = this.Expression(self)
     const alias = optional(() => {
       this._eat('as')
-      return this.Identifier()
+      return this.Identifier(self,)
     }) || {
       type: 'Identifier',
-      name: 'it'
+      name: 'it',
+      parent
     }
 
-    const body = this.BlockExpression();
-    return {
-      type: 'LoopOverExpression',
-      body,
-      alias,
-      iterable
-    }
+    const body = this.BlockStatement(self);
+    self.body = body
+    self.iterable = iterable
+    self.alias = alias
+
+    return self
   }
 
-  PrimaryExpression(): Expression {
+  PrimaryExpression(parent: Component): Expression {
     const isPublic = !!optional(() => this._eat('pub'))
 
     let expr: Expression
     switch (this._lookahead.token.type) {
-      case '(': expr = this.ParenthesizedExpression(); break
-      case '{': expr = this.BlockExpression(); break
-      case 'if': expr = this.IfExpression(); break
-      case 'identifier': expr = this.Identifier(); break
-      case 'fn': expr = this.FunctionExpression(isPublic); break
-      case 'loop_over': expr = this.LoopOverExpression(); break
-      case 'loop': expr = this.LoopExpression(); break
+      case '(': expr = this.ParenthesizedExpression(parent); break
+      case '{': expr = this.BlockExpression(parent); break
+      case 'if': expr = this.IfExpression(parent); break
+      case 'identifier': expr = this.Identifier(parent); break
+      case 'fn': expr = this.FunctionExpression(parent, isPublic); break
       default:
-        expr = this.Literal();
+        expr = this.Literal(parent);
     }
 
     while (['.', '('].includes(this._lookahead?.token?.type)) {
       switch (this._lookahead?.token?.type) {
         case '.':
-          expr = this.MemberExpression(expr)
+          expr = this.MemberExpression(parent, expr)
           break
         case '(':
-          expr = this.FunctionCall(expr)
+          expr = this.FunctionCall(parent, expr)
           break
       }
     }
 
     return expr;
-  }
-
-  /**
-   * NewExpression
-   *   : 'new' MemberExpression Arguments
-   *   ;
-   */
-  NewExpression() {
-    // Implement here...
   }
 
   /**
@@ -782,29 +844,13 @@ export class Parser {
   }
 
   /**
-   * Super
-   *   : 'super'
-   *   ;
-   */
-  Super() {
-    // Implement here...
-  }
-
-  /**
-   * Whether the token is a literal.
-   */
-  _isLiteral(tokenType) {
-    // Implement here...
-  }
-
-  /**
    * ParenthesizedExpression
    *   : '(' Expression ')'
    *   ;
    */
-  ParenthesizedExpression() {
+  ParenthesizedExpression(parent: Component) {
     this._eat('(');
-    const expr = this.Expression();
+    const expr = this.Expression(parent);
     this._eat(')');
     return expr;
   }
@@ -817,32 +863,24 @@ export class Parser {
    *   | NullLiteral
    *   ;
    */
-  Literal(): Literal {
+  Literal(parent: Component): Literal {
     switch (this._lookahead.token.type) {
       case 'number':
-        return this.NumericLiteral();
+        return this.NumericLiteral(parent);
       case 'string':
-        return this.StringLiteral();
+        return this.StringLiteral(parent);
       case 'bool':
-        return this.BooleanLiteral();
+        return this.BooleanLiteral(parent);
     }
   }
 
-  BooleanLiteral(): BooleanLiteral {
+  BooleanLiteral(parent: Component): BooleanLiteral {
     const value = this._eat('bool').value === 'true'
     return {
       type: 'BooleanLiteral',
       value,
+      parent
     };
-  }
-
-  /**
-   * NullLiteral
-   *   : 'null'
-   *   ;
-   */
-  NullLiteral() {
-    // Implement here...
   }
 
   /**
@@ -850,11 +888,12 @@ export class Parser {
    *   : STRING
    *   ;
    */
-  StringLiteral(): StringLiteral {
+  StringLiteral(parent: Component): StringLiteral {
     const token = this._eat('string');
     return {
       type: 'StringLiteral',
       value: token.value.slice(1, -1),
+      parent
     };
   }
 
@@ -863,11 +902,12 @@ export class Parser {
    *   : NUMBER
    *   ;
    */
-  NumericLiteral(): NumericLiteral {
+  NumericLiteral(parent: Component): NumericLiteral {
     const token = this._eat('number');
     return {
       type: 'NumericLiteral',
       value: Number(token.value),
+      parent
     };
   }
 

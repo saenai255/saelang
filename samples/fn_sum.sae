@@ -1,0 +1,10 @@
+fn sum(x i32, y i32) i32 {
+    return x + y;
+}
+
+fn main() {
+    let a = 5;
+    let b = 3;
+    
+    printf("%d + %d = %d\n", a, b, sum(a, b));
+}

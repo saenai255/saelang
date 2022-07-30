@@ -13,7 +13,7 @@
         "noImplicitAny": false,
         "target": "ES2021",
         "outDir": "dist",
-        "strict": true
+        "strict": true,
     },
     "exclude": [
         "node_modules",

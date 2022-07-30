@@ -9,6 +9,7 @@
         },
         "target": "es2021"
     },
+
     "minify": true,
     "sourceMaps": false,
     "inlineSourcesContent": false

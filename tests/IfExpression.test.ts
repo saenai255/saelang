@@ -1,4 +1,4 @@
-import { BlockExpression, IfExpression, NumericLiteral, Program, TakeStatement } from "../src/ASTUtils"
+import { BlockExpression, BlockStatement, ExpressionStatement, IfExpression, IfStatement, NumericLiteral, Program, TakeStatement } from "../src/ASTUtils"
 import { expectTree } from "./util"
 
 describe('IfExpression', () => {
@@ -8,9 +8,9 @@ describe('IfExpression', () => {
         }
         `,
         Program(
-            IfExpression(
+            IfStatement(
                 NumericLiteral(3),
-                BlockExpression(
+                BlockStatement(
                     TakeStatement(NumericLiteral(5)))))))
 
     test('With then and else', () => expectTree(`
@@ -21,11 +21,11 @@ describe('IfExpression', () => {
         }
         `,
         Program(
-            IfExpression(
+            IfStatement(
                 NumericLiteral(3),
-                BlockExpression(
+                BlockStatement(
                     TakeStatement(NumericLiteral(5))),
-                BlockExpression(
+                BlockStatement(
                     TakeStatement(NumericLiteral(2)))))))
 
     test('With nested if', () => expectTree(`
@@ -40,10 +40,10 @@ describe('IfExpression', () => {
         }
         `,
         Program(
-            IfExpression(NumericLiteral(3),
-                BlockExpression(
+            IfStatement(NumericLiteral(3),
+                BlockStatement(
                     TakeStatement(NumericLiteral(5))),
-                BlockExpression(
+                BlockStatement(
                     TakeStatement(
                         IfExpression(NumericLiteral(5),
                             BlockExpression(
@@ -58,10 +58,11 @@ describe('IfExpression', () => {
             take 5;
         } else {
             take 6;
-        }
+        };
         `,
         Program(
-            IfExpression(NumericLiteral(3),
+            ExpressionStatement(
+                IfExpression(NumericLiteral(3),
                 BlockExpression(
                     TakeStatement(NumericLiteral(5))),
                 BlockExpression(
@@ -70,5 +71,5 @@ describe('IfExpression', () => {
                             BlockExpression(
                                 TakeStatement(NumericLiteral(5))),
                             BlockExpression(
-                                TakeStatement(NumericLiteral(6))))))))))
+                                TakeStatement(NumericLiteral(6)))))))))))
 });

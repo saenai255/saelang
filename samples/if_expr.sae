@@ -1,0 +1,9 @@
+fn main() {
+    let name = if 1 == 1 {
+        take "Paul";
+    } else {
+        take "not Paul";
+    };
+
+    printf("My name is %s\n", name);
+}

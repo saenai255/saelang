@@ -1,4 +1,4 @@
-import { BinaryExpression, BlockExpression, FunctionExpression, Identifier, IfExpression, NumericLiteral, Program, ReturnStatement, TakeStatement, TypedArgument, TypeEmpty, TypePrimitive } from "../src/ASTUtils"
+import { BinaryExpression, FunctionExpression, Identifier, IfExpression, NumericLiteral, Program, ReturnStatement, TakeStatement, TypedArgument, TypeEmpty, TypePrimitive, BlockStatement, BlockExpression } from "../src/ASTUtils"
 import { expectTree } from "./util"
 
 describe('FunctionExpression', () => {
@@ -9,7 +9,7 @@ describe('FunctionExpression', () => {
                 name: 'empty',
                 arguments: [],
                 returnType: TypeEmpty(),
-                body: BlockExpression(),
+                body: BlockStatement(),
                 public: false
             }))))
 
@@ -20,7 +20,7 @@ describe('FunctionExpression', () => {
                 name: 'empty',
                 arguments: [],
                 returnType: TypePrimitive('i32'),
-                body: BlockExpression(),
+                body: BlockStatement(),
                 public: false
             }))))
 
@@ -33,7 +33,7 @@ describe('FunctionExpression', () => {
                 name: 'empty',
                 arguments: [],
                 returnType: TypeEmpty(),
-                body: BlockExpression(
+                body: BlockStatement(
                     ReturnStatement(
                         NumericLiteral(1))),
                 public: false
@@ -48,7 +48,7 @@ describe('FunctionExpression', () => {
                     TypedArgument('name', TypePrimitive('str'))
                 ],
                 returnType: TypeEmpty(),
-                body: BlockExpression(),
+                body: BlockStatement(),
                 public: false
             }))))
 
@@ -62,7 +62,7 @@ describe('FunctionExpression', () => {
                     TypedArgument('age', TypePrimitive('u8'))
                 ],
                 returnType: TypeEmpty(),
-                body: BlockExpression(),
+                body: BlockStatement(),
                 public: false
             }))))
 
@@ -82,7 +82,7 @@ describe('FunctionExpression', () => {
                     TypedArgument('double', TypePrimitive('bool'))
                 ],
                 returnType: TypePrimitive('i32'),
-                body: BlockExpression(
+                body: BlockStatement(
                     ReturnStatement(
                         IfExpression(
                             Identifier('double'),
