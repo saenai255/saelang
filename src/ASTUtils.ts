@@ -79,10 +79,6 @@ export const getAllChildrenOfType = (component: t.Component, type: t.Component['
         out.push(component)
     }
 
-    if (component.type === 'VariableDeclarationStatement') {
-        debugger
-    }
-
     const children = getChildren(component);
     for (const child of children) {
         out = [...out, ...getAllChildrenOfType(child, type)]
