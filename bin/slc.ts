@@ -12,6 +12,7 @@ import * as fs from 'fs'
 import * as cp from 'child_process'
 import * as os from 'os'
 import { SaeError, SaeSyntaxError } from "../src/Error";
+import ora from 'ora'
 
 const debugSource = `
 fn main() {
@@ -25,13 +26,23 @@ fn main() {
     printf("x = %d\\n", x);
 }
 `;
-
+let progress = ora({
+    interval: 1
+});
 function transpile(source: string, file?: string): string {
+    progress = progress.start('Transpiling source to C++')
     const parser = new Parser();
     parser._file = file;
     const ast = parser.parse(source);
     const expandedAST = new ASTChecker().check(ast) as AST
-    return toC(expandedAST as AST);
+    try {
+        const c = toC(expandedAST as AST);
+        progress = progress.succeed();
+        return c;
+    } catch (e) {
+        progress = progress.fail();
+        throw e;
+    }
 }
 
 function transpileFile(path: string): string {
@@ -40,8 +51,15 @@ function transpileFile(path: string): string {
 }
 
 function compileC(path: string, outpath: string) {
-    const compiler = process.env.CXX || 'g++'
-    cp.execSync(`${compiler} ${path} -O3 -o ${outpath}`)
+    try {
+        progress = progress.start('Compiling C++ sources')
+        const compiler = process.env.CXX || 'g++'
+        cp.execSync(`${compiler} ${path} -O3 -o ${outpath}`);
+        progress = progress.succeed();
+    } catch (e) {
+        progress = progress.fail();
+        throw e;
+    }
 }
 
 function compileFile(path: string): string {

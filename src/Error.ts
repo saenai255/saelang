@@ -27,7 +27,6 @@ ${'==> Compilation Error!'.red.bold}
 
 >> ${loc.blue.underline}
 ${this.lookahead.errorHint}
-${this.msg.red}
-`.trim();
+${this.msg.red}`;
     }
 }
