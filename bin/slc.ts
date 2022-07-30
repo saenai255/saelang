@@ -1,16 +1,17 @@
 #!/usr/bin/env node
 'use strict';
+import 'colors';
 
-import ASTExpander from "../src/ASTExpander";
+import ASTChecker from "../src/ASTChecker";
 import { Parser } from "../src/Parser";
 import { toC } from "../src/ASTToCpp";
 import AST from "../src/AST";
 import yargs from 'yargs'
 import { hideBin } from 'yargs/helpers'
-import { join } from 'path'
 import * as fs from 'fs'
 import * as cp from 'child_process'
 import * as os from 'os'
+import { SaeError, SaeSyntaxError } from "../src/Error";
 
 const debugSource = `
 fn main() {
@@ -25,16 +26,17 @@ fn main() {
 }
 `;
 
-function transpile(source: string): string {
+function transpile(source: string, file?: string): string {
     const parser = new Parser();
+    parser._file = file;
     const ast = parser.parse(source);
-    const expandedAST = new ASTExpander().expand(ast) as AST
+    const expandedAST = new ASTChecker().check(ast) as AST
     return toC(expandedAST as AST);
 }
 
 function transpileFile(path: string): string {
     const src = fs.readFileSync(path, 'utf-8');
-    return transpile(src)
+    return transpile(src, path)
 }
 
 function compileC(path: string, outpath: string) {
@@ -71,9 +73,9 @@ function emitCode(path: string, code: string) {
     fs.writeFileSync(path.endsWith('.cpp') ? path : `${path}.cpp`, code)
 }
 
-yargs(hideBin(process.argv))
+const main = yargs(hideBin(process.argv))
     .demandCommand(1)
-    .command('transpile [file]', 'transpile the SAE file to C', yargs => {
+    .command('transpile [file]', 'transpile the SAE file to C++', yargs => {
         return yargs
             .positional('file', {
                 describe: 'file to transpile',
@@ -90,7 +92,7 @@ yargs(hideBin(process.argv))
         const cCode = transpileFile(file);
         emitCode(output, cCode)
     })
-    .command('compile [file]', 'compile the SAE file to native executable', yargs => {
+    .command('compile [file]', 'compile the SAE file to native executable using env CXX', yargs => {
         return yargs
             .positional('file', {
                 describe: 'file to compile',
@@ -117,18 +119,15 @@ yargs(hideBin(process.argv))
             })
             .demandOption('file')
     }, ({ file }) => {
-        try {
             const exePath = compileFile(file);
             try {
                 const buf = cp.execFileSync(exePath)
                 console.log(buf.toString('utf-8'))
             } catch (e) {
-                console.error((e as any).stdout.toString('utf-8'))
+                throw e;
+            } finally {
+                fs.unlinkSync(exePath)
             }
-            fs.unlinkSync(exePath)
-        } catch (e) {
-            console.error((e as Error).message)
-        }
     })
     .command('debug', 'debug the inline code', yargs => {
         return yargs.option('output', {
@@ -140,5 +139,22 @@ yargs(hideBin(process.argv))
     }, ({ output }) => {
         const cCode = transpileDebug();
         emitCode(output, cCode)
-    })
-    .parseSync()
+    });
+
+(() => {
+    try {
+        main.parseSync();
+    } catch (e) {
+        let exitCode = 1;
+        if (e instanceof SaeSyntaxError) {
+            console.error(e.toString())
+
+        } else {
+            console.error((e as Error).message)
+            exitCode = 255;
+        }
+
+        console.log('\nTerminated with exit code', exitCode + '.');
+        process.exit(exitCode)
+    }
+})();

@@ -9,5 +9,5 @@ fn main() {
         take x;
     };
 
-    printf("a + b = %d\n", a + b);
+    printfs("a + b = %d\n", a + b);
 }

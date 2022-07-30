@@ -26,10 +26,13 @@ function either<T>(...fns: Array<() => T>): T | null {
   return null;
 }
 
+export const componentTokenMap = new Map<Component, TokenDetails>()
+
 export class Parser {
   private _lookahead: TokenDetails = null
   private _string = '';
   private _tokenizer = new Tokenizer();
+  public _file: string = null;
 
   /**
    * Parses a string into an AST.
@@ -37,6 +40,7 @@ export class Parser {
   parse(str: string): AST {
     this._string = str;
     this._tokenizer.init(str);
+    this._tokenizer._file = this._file;
 
     this._lookahead = this._tokenizer.getNextToken();
 
@@ -45,6 +49,7 @@ export class Parser {
 
   private _lookaheadForwards(steps: number = 1): TokenDetails | null {
     let tokenizer = new Tokenizer()
+    tokenizer._file = this._file;
     tokenizer._cursor = this._tokenizer._cursor
     tokenizer._string = this._tokenizer._string
 
@@ -196,7 +201,8 @@ export class Parser {
       parent
     }
 
-    this._eat('fn');
+    const fnToken = this._eat('fn');
+    registerComponentToken(fnToken, self)
     const identifier = optional(() => this.Identifier(self));
     this._eat('(');
     const params = this.FormalParameterList(self);
@@ -289,7 +295,8 @@ export class Parser {
       value: null,
       parent
     }
-    this._eat('return');
+    const returnToken = this._eat('return');
+    registerComponentToken(returnToken, self)
     const expr = this.Expression(self);
 
     if (!['IfExpression', 'FunctionExpression'].includes(expr.type)) {
@@ -337,7 +344,8 @@ export class Parser {
       condition: null,
       parent
     }
-    this._eat('if');
+    const ifToken = this._eat('if');
+    registerComponentToken(ifToken, self)
     const conditionExpr = this.Expression(self);
     let block = this.Expression(self);
     if (block.type !== 'BlockExpression') {
@@ -384,7 +392,8 @@ export class Parser {
       condition: null,
       parent
     }
-    this._eat('if');
+    const ifToken = this._eat('if');
+    registerComponentToken(ifToken, self)
     const conditionExpr = this.Expression(self);
     let block = this.BlockStatement(self);
 
@@ -413,15 +422,17 @@ export class Parser {
    *   ;
    */
   EmptyStatement(parent: Component): Statement {
-    this._eat(';');
-    return {
+    const token = this._eat(';');
+    const self: Statement = {
       type: 'EmptyStatement',
       parent
     };
+    componentTokenMap.set(self, token.up)
+    return self
   }
 
   FireStatement(parent: Component): FireStatement {
-    this._eat('fire')
+    const fireToken = this._eat('fire')
     const func = this.Expression(null)
     if (func.type !== 'FunctionCall') {
       throw new SaeSyntaxError('Expected FunctionCall but got ' + func.type, this._lookahead)
@@ -435,11 +446,13 @@ export class Parser {
     }
 
     self.functionCall.parent = self;
+    registerComponentToken(fireToken, self);
+
     return self
   }
 
   DeferStatement(parent: Component): DeferStatement {
-    this._eat('defer')
+    const deferToken = this._eat('defer')
 
     const self: DeferStatement = {
       type: 'DeferStatement',
@@ -448,6 +461,8 @@ export class Parser {
     }
 
     self.stmt = this.Statement(self);
+    registerComponentToken(deferToken, self);
+
     return self
   }
 
@@ -457,7 +472,7 @@ export class Parser {
    *   ;
    */
   BlockExpression(parent: Component): BlockExpression {
-    this._eat('{');
+    const blockToken = this._eat('{');
 
     const self: BlockExpression = {
       type: 'BlockExpression',
@@ -467,12 +482,13 @@ export class Parser {
 
     self.body = this._lookahead.token.type !== '}' ? this.StatementList(self, '}') : [];
     this._eat('}');
+    registerComponentToken(blockToken, self)
 
     return self
   }
 
   BlockStatement(parent: Component): BlockStatement {
-    this._eat('{');
+    const blockToken = this._eat('{');
 
     const self: BlockStatement = {
       type: 'BlockStatement',
@@ -482,6 +498,7 @@ export class Parser {
 
     self.body = this._lookahead.token.type !== '}' ? this.StatementList(self, '}') : [];
     this._eat('}');
+    registerComponentToken(blockToken, self)
 
     return self
   }
@@ -499,7 +516,8 @@ export class Parser {
     }
 
     self.expression = this.Expression(self);
-    this._eat(';');
+    const exprStmtToken = this._eat(';');
+    registerComponentToken(exprStmtToken, self)
     return self
   }
 
@@ -522,7 +540,9 @@ export class Parser {
       parent
     }
 
-    self.mutable = either(() => this._eat('let_mut'), () => this._eat('let')).type === 'let_mut';
+    const letToken = either(() => this._eat('let_mut'), () => this._eat('let'))
+    self.mutable = letToken.type === 'let_mut';
+    registerComponentToken(letToken, self)
     self.left = this.Identifier(self)
 
     self.ttype = this._Type(self, false);
@@ -549,7 +569,9 @@ export class Parser {
     }
 
     self.left = this.Identifier(self)
-    self.operator = either(() => this._eat('simple_assign'), () => this._eat('complex_assign')).value
+    const assignToken = either(() => this._eat('simple_assign'), () => this._eat('complex_assign'))
+    registerComponentToken(assignToken, self)
+    self.operator = assignToken.value
     self.right = this.Expression(self);
     this._eat(';');
 
@@ -562,12 +584,15 @@ export class Parser {
    *   ;
    */
   Identifier(parent: Component): Identifier {
-    const name = this._eat('identifier').value;
-    return {
+    const token = this._eat('identifier');
+    const self: Identifier = {
       type: 'Identifier',
-      name,
+      name: token.value,
       parent
     };
+
+    registerComponentToken(token, self)
+    return self;
   }
 
   /**
@@ -682,17 +707,19 @@ export class Parser {
     let left = getExpression();
 
     while (this._lookahead.token && this._lookahead.token.type === operatorToken) {
-      const operator = this._eat(operatorToken).value;
+      const operator = this._eat(operatorToken);
 
       const right = getExpression();
 
       left = {
         type: 'BinaryExpression',
-        operator,
+        operator: operator.value,
         left,
         right,
         parent
       };
+
+      registerComponentToken(operator, left)
     }
 
     return left;
@@ -736,13 +763,14 @@ export class Parser {
    *   ;
    */
   MemberExpression(parent: Component, expr: Expression): MemberExpression {
-    this._eat('.')
+    const memberToken = this._eat('.')
     const self: MemberExpression = {
       type: 'MemberExpression',
       expression: expr,
       property: null,
       parent
     }
+    registerComponentToken(memberToken, self)
     self.property = this.Identifier(self)
 
     return self;
@@ -758,7 +786,8 @@ export class Parser {
       parent
     }
 
-    this._eat('loop')
+    const loopToken = this._eat('loop')
+    registerComponentToken(loopToken, self)
     const saeTrue: BooleanLiteral = {
       type: 'BooleanLiteral',
       value: true,
@@ -784,7 +813,8 @@ export class Parser {
       parent
     }
 
-    this._eat('loop_over')
+    const loopToken = this._eat('loop_over')
+    registerComponentToken(loopToken, self)
     const iterable = this.Expression(self)
     const alias = optional(() => {
       this._eat('as')
@@ -832,18 +862,6 @@ export class Parser {
   }
 
   /**
-   * ThisExpression
-   *   : 'this'
-   *   ;
-   */
-  ThisExpression() {
-    this._eat('this');
-    return {
-      type: 'ThisExpression',
-    };
-  }
-
-  /**
    * ParenthesizedExpression
    *   : '(' Expression ')'
    *   ;
@@ -875,12 +893,17 @@ export class Parser {
   }
 
   BooleanLiteral(parent: Component): BooleanLiteral {
-    const value = this._eat('bool').value === 'true'
-    return {
+    const boolToken = this._eat('bool')
+    const value = boolToken.value === 'true'
+    const self: BooleanLiteral = {
       type: 'BooleanLiteral',
       value,
       parent
     };
+
+    registerComponentToken(boolToken, self)
+
+    return self
   }
 
   /**
@@ -890,11 +913,14 @@ export class Parser {
    */
   StringLiteral(parent: Component): StringLiteral {
     const token = this._eat('string');
-    return {
+    const self: StringLiteral = {
       type: 'StringLiteral',
       value: token.value.slice(1, -1),
       parent
     };
+
+    registerComponentToken(token, self);
+    return self;
   }
 
   /**
@@ -904,11 +930,14 @@ export class Parser {
    */
   NumericLiteral(parent: Component): NumericLiteral {
     const token = this._eat('number');
-    return {
+    const self: NumericLiteral = {
       type: 'NumericLiteral',
       value: Number(token.value),
       parent
     };
+
+    registerComponentToken(token, self)
+    return self;
   }
 
   /**
@@ -928,4 +957,11 @@ export class Parser {
     this._lookahead = this._tokenizer.getNextToken();
     return token;
   }
+}
+
+const registerComponentToken = (token: Token, component: any): Token => {
+  if (token.up) {
+    componentTokenMap.set(component, token.up)
+  }
+  return token;
 }

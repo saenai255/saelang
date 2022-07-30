@@ -21,14 +21,13 @@ export class SaeSyntaxError extends SaeError {
     }
 
     makeMessage() {
-        const loc = `${this.lookahead.file}:${this.lookahead.line}:${this.lookahead.column}`;
-        const locLine = new Array(loc.length).fill('~').join('');
+        const loc = `${this.lookahead.file}:${this.lookahead.line}:${this.lookahead.column + 1}`;
         return `
-=> Error! ${this.msg}
+${'==> Compilation Error!'.red.bold}
 
-${loc}
-${locLine}
+>> ${loc.blue.underline}
 ${this.lookahead.errorHint}
-`;
+${this.msg.red}
+`.trim();
     }
 }

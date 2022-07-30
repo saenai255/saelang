@@ -11,6 +11,7 @@ export interface TokenDetails {
 export interface Token {
   type: string;
   value: any;
+  up?: TokenDetails;
 }
 
 /**
@@ -108,6 +109,7 @@ const Spec: [RegExp, string | null][] = [
 export class Tokenizer {
   _string: string;
   _cursor: number;
+  _file: string;
 
   /**
    * Initializes the string.
@@ -163,21 +165,31 @@ export class Tokenizer {
         return this.getNextToken();
       }
 
-      return {
+      const td: TokenDetails = {
         ...this._getHints(),
         token: {
           type: tokenType,
           value: tokenValue
         }
-      }
+      };
+      td.token.up = td;
+      return td;
     }
+
 
     const hints = this._getHints()
     throw new SaeSyntaxError(`Unexpected token "${str[0]}"`, hints)
   }
 
   _getHints(): Omit<TokenDetails, 'token'> {
-    const lines = this._string.slice(0, this._cursor).split('\n');
+    const nextLineBreak = (() => {
+      let cursor = this._cursor;
+      while (cursor < this._string.length && this._string[++cursor] !== '\n');
+      return cursor;
+    })()
+
+    const lines = this._string.slice(0, nextLineBreak).split('\n');
+    const linePad = lines.length.toString().length
     while (lines[lines.length - 1]?.trim()?.length === 0) {
       lines.pop();
     }
@@ -185,15 +197,20 @@ export class Tokenizer {
       .slice(0, lines.length === 1 ? 1 : -1)
       .reduce((acc, it) => acc + it.length + 1, 0);
 
-    const errorHint = `${lines.slice(-1)[0]}
-${new Array(column - 1 < 1 ? 1 : column - 1).fill(' ').join('') + "^^^"}
+    const errorHint = `${lines.slice(Math.max(lines.length - 6, 0), lines.length - 1).map((line, idx, arr) => `${padLeft(linePad, (lines.length - arr.length + idx).toString())} ${'|'.gray}  ${line}`).join('\n')}
+${padLeft(linePad, lines.length + '')} ${'|'.gray}  ${lines.slice(-1)[0]}
+${[lines.length.toString().split(''), 0, 0].map(() => ' ').join('')}${new Array(column - 1 < 1 ? 1 : column - 1).fill(' ').join('') + "^^^".red}
     `
 
     return {
       errorHint,
       column,
       line: lines.length,
-      file: '<annonymous>'
+      file: this._file || '<annonymous>'
     }
   }
+}
+
+const padLeft = (len: number, str: string): string => {
+  return new Array(len - str.length).fill(' ').join('') + str.gray;
 }
