@@ -1,4 +1,5 @@
-import AST, { AssignmentStatement, BinaryExpression, BlockExpression, BooleanLiteral, BreakStatement, ContinueStatement, DeferStatement, Expression, ExpressionStatement, FireStatement, FunctionCall, FunctionExpression, Identifier, IfExpression, IndexExpression, Literal, LoopStatement, LoopOverStatement, MemberExpression, NumericLiteral, ReturnStatement, Statement, StringLiteral, TakeStatement, Type, TypedArgument, TypeExpression, VariableDeclarationStatement, Component, IfStatement, BlockStatement } from './AST';
+import 'colors';
+import AST, { AssignmentStatement, BinaryExpression, BlockExpression, BooleanLiteral, BreakStatement, ContinueStatement, DeferStatement, Expression, ExpressionStatement, FireStatement, FunctionCall, FunctionExpression, Identifier, IfExpression, IndexExpression, Literal, LoopStatement, LoopOverStatement, MemberExpression, NumericLiteral, ReturnStatement, Statement, StringLiteral, TakeStatement, Type, TypedArgument, TypeExpression, VariableDeclarationStatement, Component, IfStatement, BlockStatement, CppNativeCodeStatement, TypeFunction } from './AST';
 import { TypeEmpty } from './ASTUtils';
 import { SaeError, SaeSyntaxError } from './Error'
 import { Token, TokenDetails, Tokenizer } from './Tokenizer'
@@ -38,6 +39,7 @@ export class Parser {
    * Parses a string into an AST.
    */
   parse(str: string): AST {
+    debugger
     this._string = str;
     this._tokenizer.init(str);
     this._tokenizer._file = this._file;
@@ -114,6 +116,7 @@ export class Parser {
 
     switch (this._lookahead.token.type) {
       case ';': return this.EmptyStatement(parent)
+      case 'cpp_code': return this.CppNativeCodeStatement(parent)
       case '{': return this.BlockStatement(parent)
       case 'take': return this.TakeStatement(parent)
       case 'if': return this.IfStatement(parent)
@@ -219,16 +222,49 @@ export class Parser {
   }
 
   private _Type(parent: Component, required = true): Type {
-    try {
-      const t = this._eat('primitive')
-      return {
-        type: 'PrimitiveType',
-        value: t.value,
-        parent
+    switch (this._lookahead?.token.type) {
+      case 'primitive': {
+        const t = this._eat('primitive')
+        return {
+          type: 'PrimitiveType',
+          value: t.value,
+          parent
+        }
       }
-    } catch (e) {
-      return this.TypeExpression(parent, required)
+      case '(': {
+        return this.TypeFunction(parent)
+      }
+      default: {
+        try {
+          return this.TypeExpression(parent, required)
+        } catch (e) {
+          if (required) {
+            throw e;
+          }
+          return null
+        }
+      }
     }
+  }
+
+  TypeFunction(parent: Component): TypeFunction {
+    const self: TypeFunction = {
+      type: 'TypeFunction',
+      genericTypes: [],
+      paramTypes: [],
+      returnType: null,
+      parent,
+    };
+
+    this._eat('(')
+    self.paramTypes = this.FormalParameterList(self as any);
+    this._eat(')')
+    self.returnType = this._Type(self as any, false) || {
+      type: 'TypeEmpty',
+      parent: self
+    } as any
+
+    return self;
   }
 
   TypeExpression(parent: Component, required = true): TypeExpression {
@@ -328,6 +364,26 @@ export class Parser {
       type: 'ContinueStatement',
       parent
     };
+  }
+
+  CppNativeCodeStatement(parent: Component): CppNativeCodeStatement {
+    const cppToken = this._eat('cpp_code');
+    const self: CppNativeCodeStatement = {
+      type: 'CppNativeCodeStatement',
+      parent,
+      code: cppToken.value,
+      exposing: []
+    };
+
+    registerComponentToken(cppToken, self);
+    this._eat('exposing');
+    this._eat('(');
+    const params = this.FormalParameterList(self);
+    this._eat(')')
+    self.exposing = params;
+    this._eat(';')
+
+    return self;
   }
 
   /**

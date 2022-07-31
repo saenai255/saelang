@@ -214,6 +214,10 @@ export default class ASTChecker {
                         return true;
                     }
 
+                    if (it.type === 'CppNativeCodeStatement' && it.exposing.some(exposed => exposed.name === name)) {
+                        return true;
+                    }
+
                     return false
                 });
 

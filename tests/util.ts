@@ -8,11 +8,16 @@ const skipParentCheck = (ast: any, top = false): any => {
     }
 
     if (typeof ast === 'object' && !!ast) {
+        Object.values(ast).map(it => skipParentCheck(it))
+
         if ('type' in ast && !top) {
             ast.parent = expect.anything()
+
+            if ('up' in ast) {
+                ast.up = expect.anything()
+            }
         }
 
-        Object.values(ast).map(it => skipParentCheck(it))
         return ast;
     }
 

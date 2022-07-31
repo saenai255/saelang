@@ -1,3 +1,4 @@
+import 'colors';
 import { TokenDetails } from "./Tokenizer";
 
 export class SaeError extends Error {

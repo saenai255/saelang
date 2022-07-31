@@ -1,3 +1,4 @@
+import 'colors';
 export default interface AST {
     type: 'Program';
     body: Statement[];
@@ -126,9 +127,10 @@ export interface FunctionCall {
 
 export type TypeFunction = {
     type: 'TypeFunction';
-    paramTypes: Type[];
+    paramTypes: TypedArgument[];
     returnType: Type;
     genericTypes: Type[];
+    parent?: Component;
 }
 
 export type TypePointer = {
@@ -151,6 +153,13 @@ export type Type =
 export interface TypeEmpty {
     parent?: Component;
     type: 'TypeEmpty'
+}
+
+export type CppNativeCodeStatement = {
+    parent?: Component;
+    type: 'CppNativeCodeStatement';
+    code: string;
+    exposing: TypedArgument[];
 }
 
 export interface TypeExpression {
@@ -302,6 +311,7 @@ export type Statement =
     | LoopOverStatement
     | ContinueStatement
     | BreakStatement
+    | CppNativeCodeStatement
 
 export type Component =
     | Statement

@@ -1,0 +1,9 @@
+$C++(
+    int sum(int a, int b) {
+        return a + b;
+    }
+) exposing(sum (a i32, b i32) i32);
+
+fn main() {
+    printf("sum(%d, %d) = %d\n", 5, 5, sum(5, 5));
+}

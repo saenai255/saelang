@@ -11,7 +11,7 @@ import { hideBin } from 'yargs/helpers'
 import * as fs from 'fs'
 import * as cp from 'child_process'
 import * as os from 'os'
-import { SaeError, SaeSyntaxError } from "../src/Error";
+import { SaeSyntaxError } from "../src/Error";
 import ora from 'ora'
 
 const debugSource = `
@@ -163,16 +163,12 @@ const main = yargs(hideBin(process.argv))
     try {
         main.parseSync();
     } catch (e) {
-        let exitCode = 1;
         if (e instanceof SaeSyntaxError) {
             console.error(e.toString())
-
+            process.exit(1);
         } else {
             console.error((e as Error).message)
-            exitCode = 255;
+            console.error((e as Error).stack)
         }
-
-        console.log('\nTerminated with exit code', exitCode + '.');
-        process.exit(exitCode)
     }
 })();

@@ -97,6 +97,9 @@ const Spec: [RegExp, string | null][] = [
   [/^"[^"]*"/, 'string'],
   [/^'[^']*'/, 'string'],
 
+  // C++ native code
+  [/^exposing/, 'exposing'],
+  [/^\$C\+\+\s*\(([\S\s]*)\)\s*exposing/, 'cpp_code'],
   // Identifiers
   [/^[_a-zA-Z][_a-zA-Z0-9]*/, 'identifier']
 ];
@@ -139,6 +142,11 @@ export class Tokenizer {
       return null;
     }
 
+    if (str.startsWith('$C++(')) {
+      this._cursor += matched[0].length - "exposing".length;
+      return matched[1];
+    }
+
     this._cursor += matched[0].length;
     return matched[0];
   }
@@ -161,6 +169,7 @@ export class Tokenizer {
         continue;
       }
 
+      debugger
       if (tokenType == null) {
         return this.getNextToken();
       }
@@ -178,7 +187,7 @@ export class Tokenizer {
 
 
     const hints = this._getHints()
-    throw new SaeSyntaxError(`Unexpected token "${str[0]}"`, hints)
+    throw new SaeSyntaxError(`Unexpected token sequence: ${str.substring(0, 5).underline.bold}...`, hints)
   }
 
   _getHints(): Omit<TokenDetails, 'token'> {
@@ -189,6 +198,7 @@ export class Tokenizer {
     })()
 
     const lines = this._string.slice(0, nextLineBreak).split('\n');
+    const afterLines = this._string.slice(nextLineBreak + 2).split('\n');
     const linePad = lines.length.toString().length
     while (lines[lines.length - 1]?.trim()?.length === 0) {
       lines.pop();
@@ -197,10 +207,11 @@ export class Tokenizer {
       .slice(0, lines.length === 1 ? 1 : -1)
       .reduce((acc, it) => acc + it.length + 1, 0);
 
-    const errorHint = `${lines.slice(Math.max(lines.length - 6, 0), lines.length - 1).map((line, idx, arr) => `${padLeft(linePad, (lines.length - arr.length + idx).toString())} ${'|'.gray}  ${line}`).join('\n')}
+    const errorHint = `${lines.slice(Math.max(lines.length - 4, 0), lines.length - 1).map((line, idx, arr) => `${padLeft(linePad, (lines.length - arr.length + idx).toString())} ${'|'.gray}  ${line}`).join('\n')}
 ${padLeft(linePad, lines.length + '')} ${'|'.gray}  ${lines.slice(-1)[0]}
 ${[lines.length.toString().split(''), 0, 0].map(() => ' ').join('')}${new Array(column - 1 < 1 ? 1 : column - 1).fill(' ').join('') + "^^^".red}
-    `
+${afterLines.slice(0, Math.min(afterLines.length, 2)).map((line, idx) => `${padLeft(linePad, (lines.length + idx + 1).toString())} ${'|'.gray}  ${line}`).join('\n')}
+`
 
     return {
       errorHint,
@@ -212,5 +223,6 @@ ${[lines.length.toString().split(''), 0, 0].map(() => ' ').join('')}${new Array(
 }
 
 const padLeft = (len: number, str: string): string => {
-  return new Array(len - str.length).fill(' ').join('') + str.gray;
+  const size = len - str.length;
+  return new Array(Math.max(size, 0)).fill(' ').join('') + str.gray;
 }

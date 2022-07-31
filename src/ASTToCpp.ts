@@ -124,6 +124,8 @@ ${CPP_KEYWORDS.ifExpr}(
             return `${CPP_KEYWORDS.deferStmt}({${$C(component.stmt)}});`
         case 'MemberExpression':
             return `${$C(component.expression)}.${$C(component.property)}`
+        case 'CppNativeCodeStatement':
+            return component.code;
     }
 
     throw new Error();

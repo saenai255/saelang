@@ -1,4 +1,4 @@
-import { BlockExpression, BlockStatement, ExpressionStatement, IfExpression, IfStatement, NumericLiteral, Program, TakeStatement } from "../src/ASTUtils"
+import { BlockExpression, BlockStatement, ExpressionStatement, Identifier, IfExpression, IfStatement, NumericLiteral, Program, TakeStatement, VariableDeclarationStatement } from "../src/ASTUtils"
 import { expectTree } from "./util"
 
 describe('IfExpression', () => {
@@ -51,8 +51,8 @@ describe('IfExpression', () => {
                             BlockExpression(
                                 TakeStatement(NumericLiteral(6))))))))))
 
-    test('With nested if as expression', () => expectTree(`
-        if 3 {
+    test.only('With nested if as expression', () => expectTree(`
+        let _ = if 3 {
             take 5;
         } else if 5 {
             take 5;
@@ -61,15 +61,21 @@ describe('IfExpression', () => {
         };
         `,
         Program(
-            ExpressionStatement(
-                IfExpression(NumericLiteral(3),
-                BlockExpression(
-                    TakeStatement(NumericLiteral(5))),
-                BlockExpression(
-                    TakeStatement(
-                        IfExpression(NumericLiteral(5),
-                            BlockExpression(
-                                TakeStatement(NumericLiteral(5))),
-                            BlockExpression(
-                                TakeStatement(NumericLiteral(6)))))))))))
+            VariableDeclarationStatement({
+                mutable: false,
+                left: Identifier('_'),
+                public: false,
+                right: IfExpression(
+                    NumericLiteral(3),
+                    BlockExpression(
+                        TakeStatement(NumericLiteral(5))),
+                    BlockExpression(
+                        TakeStatement(
+                            IfExpression(NumericLiteral(5),
+                                BlockExpression(
+                                    TakeStatement(NumericLiteral(5))),
+                                BlockExpression(
+                                    TakeStatement(NumericLiteral(6))))))),
+                ttype: null
+            }))))
 });
