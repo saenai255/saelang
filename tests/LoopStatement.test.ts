@@ -9,7 +9,7 @@ describe('LoopStatement', () => {
                 BlockStatement(),
                 BooleanLiteral(true)))))
 
-    test.skip('forever loop', () => expectTree(
+    test('forever loop', () => expectTree(
         `loop {}`,
         Program(
             LoopStatement(

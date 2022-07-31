@@ -97,6 +97,12 @@ const Spec: [RegExp, string | null][] = [
   [/^"[^"]*"/, 'string'],
   [/^'[^']*'/, 'string'],
 
+  // Types
+  [/^type struct/, 'type_struct'],
+  [/^type interface/, 'type_interface'],
+  [/^type alias/, 'type_alias'],
+  [/^impl/, 'impl'],
+
   // C++ native code
   [/^exposing/, 'exposing'],
   [/^\$C\+\+\s*\(([\S\s]*)\)\s*exposing/, 'cpp_code'],

@@ -135,20 +135,68 @@ export type TypeFunction = {
 
 export type TypePointer = {
     type: 'TypePointer';
+    parent?: Component;
     inner: Type;
 }
 
 export type TypeArray = {
     type: 'TypeArray';
+    parent?: Component;
     inner: Type
 }
+
+export type StructDeclarationStatement = {
+    type: 'StructDeclarationStatement'
+    parent?: Component;
+    name: string;
+    implements: Identifier[];
+    attributes: [Identifier, Identifier | Type][];
+}
+
+export type TypeInterface = {
+    type: 'TypeInterface'
+    parent?: Component;
+    name: string;
+    implements: TypeInterface[];
+    attributes: TypedArgument[];
+}
+
+export type TypeStruct = {
+    type: 'TypeStruct'
+    parent?: Component;
+    name: string;
+    implements: TypeInterface[];
+    attributes: TypedArgument[];
+}
+
+export type TypeUnion = {
+    type: 'TypeUnion'
+    parent?: Component;
+    union: Type[];
+}
+
+export type EnumDeclaration = {
+    type: 'EnumDeclaration';
+    parent?: Component;
+    enum: Enum;
+}
+
+export type Enum = {
+    type: 'Enum'
+    variants: TypedArgument[];
+    name: string;
+    parent?: Component;
+} 
 
 export type Type =
     | TypeEmpty
     | Primitive
-    | TypeExpression
     | TypeFunction
     | TypePointer
+    | TypeStruct
+    | TypeInterface
+    | TypeUnion
+    | Identifier
 
 export interface TypeEmpty {
     parent?: Component;
@@ -160,16 +208,6 @@ export type CppNativeCodeStatement = {
     type: 'CppNativeCodeStatement';
     code: string;
     exposing: TypedArgument[];
-}
-
-export interface TypeExpression {
-    type: 'TypeExpression';
-    rootModule: string;
-    submodules: string[];
-    name: string;
-    genericTypes: Type[];
-    parent?: Component;
-    implements: Type[];
 }
 
 export interface TypedArgument {
@@ -312,6 +350,7 @@ export type Statement =
     | ContinueStatement
     | BreakStatement
     | CppNativeCodeStatement
+    | StructDeclarationStatement
 
 export type Component =
     | Statement

@@ -1,4 +1,6 @@
 import AST, { Component, Type, TypedArgument } from "./AST";
+import { SaeSyntaxError } from "./Error";
+import { componentTokenMap } from "./Parser";
 
 const CPP_KEYWORDS = {
     structDeferredName: '__INTERLUDE_SAE_DEFERRED',
@@ -46,11 +48,15 @@ const $CType = (typ: Type | TypedArgument, acceptAuto = false): string => {
             return `${typ.mutable ? '' : 'const '}${$CType(typ.argType)} ${typ.name}`
         case 'TypePointer':
             return `${$CType(typ.inner)}*`
+        case 'Identifier':
+            return `${$C(typ)}`
+        case 'TypeFunction':
+            return `std::function<${$CType(typ.returnType)}(${typ.paramTypes.map(it => $CType(it.argType)).join(', ')})>`
         default:
             if (acceptAuto) {
                 return 'auto';
             } else {
-                throw new Error(`Type ${typ} not yet supported.`);
+                throw new SaeSyntaxError(`Type ${typ} not yet supported.`, componentTokenMap.get(typ as any));
             }
     }
 }
@@ -67,6 +73,12 @@ const $C = (component: Component): string => {
             return `(${$C(component.left)} ${component.operator} ${$C(component.right)})`;
         case 'AssignmentStatement':
             return `${component.left.name} = ${$C(component.right)};`
+        case 'StructDeclarationStatement':
+            return `
+struct ${component.name} ${component.implements.length > 0 ? (': ' + component.implements.map(it => $CType(it)).join(', ')) : ''} {
+    ${component.attributes.map(it => `${$CType(it[1])} ${$C(it[0])};`).join('\n')}
+};
+            `.trim()
         case 'VariableDeclarationStatement':
             return `${component.mutable ? '' : 'const '}${$CType(component.ttype, true)} ${component.left.name}` + (component.right ? ` = ${$C(component.right)};` : `;`)
         case 'BlockExpression':

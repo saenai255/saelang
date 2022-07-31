@@ -51,7 +51,7 @@ describe('IfExpression', () => {
                             BlockExpression(
                                 TakeStatement(NumericLiteral(6))))))))))
 
-    test.only('With nested if as expression', () => expectTree(`
+    test('With nested if as expression', () => expectTree(`
         let _ = if 3 {
             take 5;
         } else if 5 {
