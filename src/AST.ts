@@ -306,8 +306,8 @@ export interface BlockStatement {
 
 export interface IfExpression {
     type: 'IfExpression',
-    then: BlockExpression;
-    else?: BlockExpression;
+    then: Expression;
+    else: Expression;
     condition: Expression;
     parent?: Component;
     ttype?: Type;

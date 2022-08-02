@@ -1,4 +1,4 @@
-import AST, { Component, Type, TypedArgument } from "./AST";
+import AST, { Component, Expression, TakeStatement, Type, TypedArgument } from "./AST";
 import { SaeSyntaxError } from "./Error";
 import { componentTokenMap } from "./Parser";
 
@@ -90,12 +90,17 @@ ${component.attributes.map(it => `${$CType(it[1])} ${$C(it[0])};`).join('\n')}
 `.trimStart()
         case 'VariableDeclarationStatement':
             return `${component.mutable ? '' : 'const '}${$CType(component.ttype, true)} ${component.left.name}` + (component.right ? ` = ${$C(component.right)};` : `;`)
-        case 'BlockExpression':
-            return `
+        case 'BlockExpression': {
+            if (component.body.length > 1) {
+                return `
 ${CPP_KEYWORDS.blockExpr}({
 ${component.body.map(it => $C(it)).join('\n')}
 })
 `.trim()
+            } else {
+                return $C((component.body[0] as TakeStatement).value)
+            }
+        }
         case 'BlockStatement':
             return `
 {
@@ -125,8 +130,8 @@ if ((${$C(component.condition)}) == true) ${$C(component.then)} ${component.else
         case 'IfExpression':
             return `
 ${CPP_KEYWORDS.ifExpr}((${$C(component.condition)}) == true,
-${CPP_KEYWORDS.blockExpr}({ ${component.then.body.map(it => $C(it)).join('\n')} }),
-${CPP_KEYWORDS.blockExpr}({ ${component.else.body.map(it => $C(it)).join('\n')} }))
+${$C(component.then)},
+${$C(component.else)})
 `.trim()
         case 'IndexExpression':
             return `${$C(component.expression)}[${$C(component.index)}]`
@@ -191,7 +196,7 @@ struct ${CPP_KEYWORDS.structDeferredName}
 const prettyPrint = (code: string): string => {
     const diff = (line: string) => {
         const chars = line.split('');
-        const out = chars.filter(it => ['{', '(', '['].includes(it)).length - chars.filter(it => ['}', ')', ']'].includes(it)).length;
+        const out = chars.filter(it => ['{', '['].includes(it)).length - chars.filter(it => ['}', ']'].includes(it)).length;
         return out < 0
             ? -1
             : out > 0
@@ -205,7 +210,7 @@ const prettyPrint = (code: string): string => {
             return false;
         }
 
-        return ['}', ']', ')'].includes(ln[0]);
+        return ['}', ']'].includes(ln[0]);
     }
 
     let depth = 0;

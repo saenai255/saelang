@@ -10,7 +10,7 @@ export const StringLiteral = (value: string): t.StringLiteral => ({ type: 'Strin
 export const BooleanLiteral = (value: boolean): t.BooleanLiteral => ({ type: 'BooleanLiteral', value })
 export const BlockExpression = (...stmts: t.Statement[]): t.BlockExpression => ({ type: 'BlockExpression', body: stmts })
 export const BlockStatement = (...stmts: t.Statement[]): t.BlockStatement => ({ type: 'BlockStatement', body: stmts })
-export const IfExpression = (condition: t.Expression, then: t.BlockExpression, otherwise: t.BlockExpression = null): t.IfExpression => ({ type: 'IfExpression', condition, then, else: otherwise })
+export const IfExpression = (condition: t.Expression, then: t.Expression, otherwise: t.Expression): t.IfExpression => ({ type: 'IfExpression', condition, then, else: otherwise })
 export const IfStatement = (condition: t.Expression, then: t.BlockStatement, otherwise: t.BlockStatement = null): t.IfStatement => ({ type: 'IfStatement', condition, then, else: otherwise })
 export const Identifier = (name: string): t.Identifier => ({ type: 'Identifier', name })
 export const TypeIdentifier = (name: string): t.TypeIdentifier => ({ type: 'TypeIdentifier', name })

@@ -68,11 +68,11 @@ describe('FunctionDeclarationStatement', () => {
 
     test(`complex function`, () => expectTree(
         `pub fn foo(nr i32, double bool) i32 {
-            return if double {
+            return if double do {
                 take nr * 2;
-            } else {
+            } else do {
                 take nr * 10;
-            }
+            };
         }`,
         Program(
             FunctionDeclarationStatement({

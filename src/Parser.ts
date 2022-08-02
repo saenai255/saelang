@@ -349,7 +349,7 @@ export class Parser {
 
     const fnToken = this.eat('fn');
     registerComponentToken(fnToken, self)
-    const identifier = optionally(() => this.Identifier(self));
+    const identifier = this.Identifier(self);
     this.eat('(');
     const params = this.FormalParameterList(self);
     this.eat(')')
@@ -455,9 +455,7 @@ export class Parser {
     registerComponentToken(returnToken, self)
     const expr = this.Expression(self);
 
-    if (!['IfExpression', 'FunctionExpression'].includes(expr.type)) {
-      this.eat(';')
-    }
+    this.eat(';')
 
     self.value = expr
     return self
@@ -524,34 +522,10 @@ export class Parser {
     registerComponentToken(ifToken, self)
     const conditionExpr = this.Expression(self);
     let block = this.Expression(self);
-    if (block.type !== 'BlockExpression') {
-      block = {
-        type: 'BlockExpression',
-        body: [{
-          type: 'TakeStatement',
-          value: block,
-          parent: null
-        }],
-        parent: self
-      }
 
-      block.body[0].parent = block
-    }
+    this.eat('else');
 
-    let otherwise = !!optionally(() => this.eat('else')) ? this.Expression(self) : null;
-    if (otherwise !== null && otherwise.type !== 'BlockExpression') {
-      otherwise = {
-        type: 'BlockExpression',
-        body: [{
-          type: 'TakeStatement',
-          value: otherwise,
-          parent: null
-        }],
-        parent: self
-      };
-
-      (otherwise as any as BlockExpression).body[0].parent = otherwise
-    }
+    const otherwise = this.Expression(self);
 
     self.condition = conditionExpr
     self.then = block
@@ -648,7 +622,8 @@ export class Parser {
    *   ;
    */
   BlockExpression(parent: Component): BlockExpression {
-    const blockToken = this.eat('{');
+    const blockToken = this.eat('do')
+    this.eat('{');
 
     const self: BlockExpression = {
       type: 'BlockExpression',
@@ -677,7 +652,11 @@ export class Parser {
     }
 
     self.body = this.lookahead.token.type !== '}' ? this.StatementList(self, '}') : [];
-    this.eat('}');
+    try {
+      this.eat('}');
+    } catch (e) {
+      throw new SaeSyntaxError(`Missing extra closing curly ` + '}'.bgBlue.reset + ` token here.`.red, (e as SaeSyntaxError).lookahead)
+    }
     registerComponentToken(blockToken, self)
 
     return self
@@ -1037,7 +1016,7 @@ export class Parser {
     let expr: Expression
     switch (this.lookahead.token.type) {
       case '(': expr = this.ParenthesizedExpression(parent); break
-      case '{': expr = this.BlockExpression(parent); break
+      case 'do': expr = this.BlockExpression(parent); break
       case 'if': expr = this.IfExpression(parent); break
       // case 'fn': expr = this.FunctionDeclarationStatement(parent, isPublic); break
       case 'identifier': expr = this.Identifier(parent); break

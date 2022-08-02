@@ -2,7 +2,7 @@ import 'colors';
 import { TokenDetails } from "./Tokenizer";
 
 export class SaeError extends Error {
-    constructor(protected msg: string, protected lookahead: TokenDetails) {
+    constructor(public msg: string, public lookahead: TokenDetails) {
         super(msg);
     }
 
@@ -12,7 +12,7 @@ export class SaeError extends Error {
 }
 
 export class SaeSyntaxError extends SaeError {
-    constructor(protected msg: string, protected lookahead: TokenDetails) {
+    constructor(public msg: string, public lookahead: TokenDetails) {
         super(msg, lookahead);
         this.msg = this.makeMessage()
     }

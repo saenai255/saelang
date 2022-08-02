@@ -16,23 +16,16 @@ import ora from 'ora'
 
 const debugSource = `
 
-type struct Number {
-    value i32;
+pub fn foo(nr i32, fne bool) i32 {
+    return if fne do {
+        take nr * 2;
+    } else do {
+        take nr * 10;
+    };
 }
 
 fn main() {
-    // if 3 {
-    //     take 5;
-    // } else {
-    //     take if 5 {
-    //         take 5;
-    //     } else {
-    //         take 6;
-    //     };
-    // }
-    let num = Number {
-        value = 5
-    };
+    printf("%d\n", foo(3, false));
 }
 `;
 let progress = ora({

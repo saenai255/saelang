@@ -55,7 +55,7 @@ const Spec: [RegExp, string | null][] = [
   [/^else/, 'else'],
   [/^return/, 'return'],
   [/^take/, 'take'],
-  [/^fn/, 'fn'],
+  [/^fn(?!\w)/, 'fn'],
   [/^defer/, 'defer'],
   [/^fire/, 'fire'],
   [/^loop over/, 'loop_over'],
@@ -64,7 +64,8 @@ const Spec: [RegExp, string | null][] = [
   [/^break/, 'break'],
   [/^continue/, 'continue'],
   [/^use/, 'use'],
-  [/^pub/, 'pub'],
+  [/^pub(?!\w)/, 'pub'],
+  [/^do(?!\w)/, 'do'],
 
   [/^i8/, 'primitive'],
   [/^i16/, 'primitive'],
@@ -203,20 +204,29 @@ export class Tokenizer {
     })()
 
     const lines = this._string.slice(0, nextLineBreak).split('\n');
-    const afterLines = this._string.slice(nextLineBreak + 2).split('\n');
+    const afterLines = this._string.slice(nextLineBreak).split('\n');
     const linePad = lines.length.toString().length
     while (lines[lines.length - 1]?.trim()?.length === 0) {
       lines.pop();
     }
-    const column = this._cursor - lines
+    const column = Math.max(
+      this._cursor - lines
       .slice(0, lines.length === 1 ? 1 : -1)
-      .reduce((acc, it) => acc + it.length + 1, 0);
+        .reduce((acc, it) => acc + it.length + 1, 0),
+      0
+    );
 
-    const errorHint = `${lines.slice(Math.max(lines.length - 4, 0), lines.length - 1).map((line, idx, arr) => `${padLeft(linePad, (lines.length - arr.length + idx).toString())} ${'|'.gray}  ${line}`).join('\n')}
-${padLeft(linePad, lines.length + '')} ${'|'.gray}  ${lines.slice(-1)[0]}
-${[lines.length.toString().split(''), 0, 0].map(() => ' ').join('')}${new Array(column - 1 < 1 ? 1 : column - 1).fill(' ').join('') + "^^^".red}
-${afterLines.slice(0, Math.min(afterLines.length, 2)).map((line, idx) => `${padLeft(linePad, (lines.length + idx + 1).toString())} ${'|'.gray}  ${line}`).join('\n')}
-`
+
+    const linesBefore = lines.slice(Math.max(lines.length - 4, 0), lines.length - 1).map((line, idx, arr) => `${padLeft(linePad, (lines.length - arr.length + idx).toString())} ${'|'.gray}  ${line}`).join('\n');
+    const line = `${padLeft(linePad, lines.length + '')} ${'|'.gray}  ${lines.slice(-1)[0]}`;
+    const pointerArrows = `${[...lines.length.toString().split('')].map(() => ' ').join('')}${new Array(Math.max(column - 1, 1)).fill(' ').join('') + "^^^"}`.red;
+    const linesAfter = `${afterLines.slice(0, Math.min(afterLines.length, 2)).map((line, idx) => `${padLeft(linePad, (lines.length + idx + 1).toString())} ${'|'.gray}  ${line}`).join('\n')}`
+
+    const errorHint = `${linesBefore}
+${line}
+  ${pointerArrows}
+${linesAfter}
+`;
 
     return {
       errorHint,

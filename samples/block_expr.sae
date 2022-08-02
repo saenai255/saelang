@@ -2,7 +2,7 @@ fn main() {
     defer printf("this runs last\n");
     let mut a = 1;
     
-    let b = {
+    let b = do {
         let x = a;
         a = a + 5;
 

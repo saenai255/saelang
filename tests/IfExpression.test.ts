@@ -2,80 +2,29 @@ import { BlockExpression, BlockStatement, ExpressionStatement, Identifier, IfExp
 import { expectTree } from "./util"
 
 describe('IfExpression', () => {
-    test('Only with then', () => expectTree(`
-        if 3 {
-            5;
-        }
-        `,
-        Program(
-            IfStatement(
-                NumericLiteral(3),
-                BlockStatement(
-                    ExpressionStatement(NumericLiteral(5)))))))
-
-    test('With then and else', () => expectTree(`
-        if 3 {
-            5;
-        } else {
-            2;
-        }
-        `,
-        Program(
-            IfStatement(
-                NumericLiteral(3),
-                BlockStatement(
-                    ExpressionStatement(NumericLiteral(5))),
-                BlockStatement(
-                    ExpressionStatement(NumericLiteral(2)))))))
-
-    test('With nested if', () => expectTree(`
-        if 3 {
-            take 5;
-        } else {
-            take if 5 {
-                take 5;
-            } else {
-                take 6;
-            };
-        }
-        `,
-        Program(
-            IfStatement(NumericLiteral(3),
-                BlockStatement(
-                    TakeStatement(NumericLiteral(5))),
-                BlockStatement(
-                    TakeStatement(
-                        IfExpression(NumericLiteral(5),
-                            BlockExpression(
-                                TakeStatement(NumericLiteral(5))),
-                            BlockExpression(
-                                TakeStatement(NumericLiteral(6))))))))))
-
     test('With nested if as expression', () => expectTree(`
-        let _ = if 3 {
+        let _ = if 3 do {
             take 5;
-        } else if 5 {
+        } else if 5 do {
             take 5;
-        } else {
+        } else do {
             take 6;
         };
         `,
         Program(
             VariableDeclarationStatement({
-                mutable: false,
                 left: Identifier('_'),
+                mutable: false,
                 public: false,
+                ttype: null,
                 right: IfExpression(
                     NumericLiteral(3),
                     BlockExpression(
                         TakeStatement(NumericLiteral(5))),
-                    BlockExpression(
-                        TakeStatement(
-                            IfExpression(NumericLiteral(5),
-                                BlockExpression(
-                                    TakeStatement(NumericLiteral(5))),
-                                BlockExpression(
-                                    TakeStatement(NumericLiteral(6))))))),
-                ttype: null
+                    IfExpression(NumericLiteral(5),
+                        BlockExpression(
+                            TakeStatement(NumericLiteral(5))),
+                        BlockExpression(
+                            TakeStatement(NumericLiteral(6)))))
             }))))
 });
