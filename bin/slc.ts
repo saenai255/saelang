@@ -4,7 +4,7 @@ import 'colors';
 
 import ASTChecker from "../src/ASTChecker";
 import { Parser } from "../src/Parser";
-import { toC } from "../src/ASTToCpp";
+import { prelude, toC } from "../src/ASTToCpp";
 import AST from "../src/AST";
 import yargs from 'yargs'
 import { hideBin } from 'yargs/helpers'
@@ -15,15 +15,24 @@ import { SaeSyntaxError } from "../src/Error";
 import ora from 'ora'
 
 const debugSource = `
+
+type struct Number {
+    value i32;
+}
+
 fn main() {
-    defer printf("this should run last");
-    printf("this should run first");
-
-    let x = {
-        take 1;
+    // if 3 {
+    //     take 5;
+    // } else {
+    //     take if 5 {
+    //         take 5;
+    //     } else {
+    //         take 6;
+    //     };
+    // }
+    let num = Number {
+        value = 5
     };
-
-    printf("x = %d\\n", x);
 }
 `;
 let progress = ora({
@@ -84,7 +93,7 @@ function transpileDebug(): string {
 
 function emitCode(path: string, code: string) {
     if (!path) {
-        console.log(code)
+        console.log('/// prelude hidden'.italic.yellow, code.substring(prelude.length))
         return;
     }
 

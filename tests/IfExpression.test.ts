@@ -4,29 +4,29 @@ import { expectTree } from "./util"
 describe('IfExpression', () => {
     test('Only with then', () => expectTree(`
         if 3 {
-            take 5;
+            5;
         }
         `,
         Program(
             IfStatement(
                 NumericLiteral(3),
                 BlockStatement(
-                    TakeStatement(NumericLiteral(5)))))))
+                    ExpressionStatement(NumericLiteral(5)))))))
 
     test('With then and else', () => expectTree(`
         if 3 {
-            take 5;
+            5;
         } else {
-            take 2;
+            2;
         }
         `,
         Program(
             IfStatement(
                 NumericLiteral(3),
                 BlockStatement(
-                    TakeStatement(NumericLiteral(5))),
+                    ExpressionStatement(NumericLiteral(5))),
                 BlockStatement(
-                    TakeStatement(NumericLiteral(2)))))))
+                    ExpressionStatement(NumericLiteral(2)))))))
 
     test('With nested if', () => expectTree(`
         if 3 {

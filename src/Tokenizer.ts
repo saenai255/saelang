@@ -175,7 +175,6 @@ export class Tokenizer {
         continue;
       }
 
-      debugger
       if (tokenType == null) {
         return this.getNextToken();
       }

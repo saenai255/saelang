@@ -117,6 +117,9 @@ export default class ASTChecker {
                     }
                 }
             }
+            case 'StructInstantiationExpression': {
+                return component.ttype;
+            }
             case 'Identifier': {
                 let child = component as Sae.Component
                 let parent: Sae.Component = component.parent as any
@@ -131,7 +134,11 @@ export default class ASTChecker {
                         }
                     }
 
-                    if (parent.type === 'FunctionExpression') {
+                    if (parent.type === 'StructDeclarationStatement' && parent.identifier.name === component.name) {
+                        return parent.identifier
+                    }
+
+                    if (parent.type === 'FunctionDeclarationStatement') {
                         const childIdx = parent.body.body.indexOf(child as any)
                         const found: Sae.VariableDeclarationStatement = parent.body.body.slice(0, childIdx).find(it => it.type === 'VariableDeclarationStatement' && it.left.name === component.name) as any;
                         if (found) {
@@ -146,7 +153,7 @@ export default class ASTChecker {
 
                     if (parent.type === 'Program') {
                         const childIdx = parent.body.indexOf(child as any)
-                        const found: Sae.FunctionExpression = parent.body.slice(0, childIdx).find(it => it.type === 'FunctionExpression' && it.name === component.name) as any;
+                        const found: Sae.FunctionDeclarationStatement = parent.body.slice(0, childIdx).find(it => (it.type === 'FunctionDeclarationStatement' && it.name === component.name) || (it.type === 'StructDeclarationStatement' && it.identifier.name == component.name)) as any;
                         if (found) {
                             return found.returnType
                         }
@@ -184,17 +191,17 @@ export default class ASTChecker {
                 .map(it => it.expression)
                 .filter(it => it.type === 'Identifier')
         ] as Sae.Identifier[]).forEach((it: Sae.Identifier) => {
-            assert(it, !!this.doesVarDeclOrFuncExistInContext(it.name, it), `Identifier '${it.name}' is undefined.`)
+            assert(it, !!this.isIdentifierDefinedInContext(it.name, it), `Identifier '${it.name}' is undefined.`)
         });
     }
 
-    private doesVarDeclOrFuncExistInContext(name: string, component: Sae.Component & { parent?: Sae.Component }): Sae.FunctionExpression | Sae.VariableDeclarationStatement {
+    private isIdentifierDefinedInContext(name: string, component: Sae.Component & { parent?: Sae.Component }): Sae.FunctionDeclarationStatement | Sae.VariableDeclarationStatement | Sae.StructDeclarationStatement | Sae.InterfaceDeclarationStatement {
         if (!component.parent) {
             return saeToCppIdentifiers[name] || null;
         }
 
         const parent = component.parent;
-        if (parent.type === 'FunctionExpression' && parent.name === name) {
+        if (parent.type === 'FunctionDeclarationStatement' && parent.name === name) {
             return parent
         }
 
@@ -202,15 +209,31 @@ export default class ASTChecker {
             return parent;
         }
 
+        if (parent.type === 'StructDeclarationStatement' && parent.identifier.name === name) {
+            return parent;
+        }
+
+        if (parent.type === 'InterfaceDeclarationStatement' && parent.identifier.name === name) {
+            return parent;
+        }
+
         const children: Sae.Component[] = getChildren(parent);
         if (children.includes(component as any)) {
             const found = children.slice(0, children.indexOf(component))
                 .find(it => {
-                    if (it.type === 'FunctionExpression' && it.name === name) {
+                    if (it.type === 'FunctionDeclarationStatement' && it.name === name) {
                         return true
                     }
 
                     if (it.type === 'VariableDeclarationStatement' && it.left.name === name) {
+                        return true;
+                    }
+
+                    if (it.type === 'StructDeclarationStatement' && it.identifier.name === name) {
+                        return true;
+                    }
+
+                    if (it.type === 'InterfaceDeclarationStatement' && it.identifier.name === name) {
                         return true;
                     }
 
@@ -226,6 +249,6 @@ export default class ASTChecker {
             }
         }
 
-        return this.doesVarDeclOrFuncExistInContext(name, parent);
+        return this.isIdentifierDefinedInContext(name, parent);
     }
 }

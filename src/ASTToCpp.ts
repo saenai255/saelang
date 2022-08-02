@@ -3,11 +3,11 @@ import { SaeSyntaxError } from "./Error";
 import { componentTokenMap } from "./Parser";
 
 const CPP_KEYWORDS = {
-    structDeferredName: '__INTERLUDE_SAE_DEFERRED',
-    blockExpr: '__INTERLUDE__SAE_BLOCK_EXPR',
-    ifExpr: '__INTERLUDE__SAE_IF',
-    takeStmt: '__INTERLUDE__SAE_TAKE',
-    deferStmt: '__INTERLUDE_SAE_DEFER'
+    structDeferredName: '__defer_struct__',
+    blockExpr: '_block_expr',
+    ifExpr: '_if',
+    takeStmt: '_take',
+    deferStmt: '_defer'
 } as const;
 
 const s2cPrimitivesMap = {
@@ -48,8 +48,8 @@ const $CType = (typ: Type | TypedArgument, acceptAuto = false): string => {
             return `${typ.mutable ? '' : 'const '}${$CType(typ.argType)} ${typ.name}`
         case 'TypePointer':
             return `${$CType(typ.inner)}*`
-        case 'Identifier':
-            return `${$C(typ)}`
+        case 'TypeIdentifier':
+            return `${typ.name}`
         case 'TypeFunction':
             return `std::function<${$CType(typ.returnType)}(${typ.paramTypes.map(it => $CType(it.argType)).join(', ')})>`
         default:
@@ -60,6 +60,9 @@ const $CType = (typ: Type | TypedArgument, acceptAuto = false): string => {
             }
     }
 }
+
+const tabWidth = 4;
+const tab = (depth: number) => new Array(Math.max(depth, 0)).fill(new Array(tabWidth).fill(' ').join('')).join('')
 
 const $C = (component: Component): string => {
     switch (component.type) {
@@ -73,18 +76,24 @@ const $C = (component: Component): string => {
             return `(${$C(component.left)} ${component.operator} ${$C(component.right)})`;
         case 'AssignmentStatement':
             return `${component.left.name} = ${$C(component.right)};`
+        case 'InterfaceDeclarationStatement':
+            return `
+virtual struct ${$CType(component.identifier)}${component.implements.length > 0 ? (' : ' + component.implements.map(it => $CType(it)).join(', ')) : ''} {
+${component.attributes.map(it => `${$CType(it[1])} ${$C(it[0])};`).join('\n')}
+};
+`.trimStart()
         case 'StructDeclarationStatement':
             return `
-struct ${component.name} ${component.implements.length > 0 ? (': ' + component.implements.map(it => $CType(it)).join(', ')) : ''} {
-    ${component.attributes.map(it => `${$CType(it[1])} ${$C(it[0])};`).join('\n')}
+struct ${$CType(component.identifier)}${component.implements.length > 0 ? (' : ' + component.implements.map(it => $CType(it)).join(', ')) : ''} {
+${component.attributes.map(it => `${$CType(it[1])} ${$C(it[0])};`).join('\n')}
 };
-            `.trim()
+`.trimStart()
         case 'VariableDeclarationStatement':
             return `${component.mutable ? '' : 'const '}${$CType(component.ttype, true)} ${component.left.name}` + (component.right ? ` = ${$C(component.right)};` : `;`)
         case 'BlockExpression':
             return `
 ${CPP_KEYWORDS.blockExpr}({
-    ${component.body.map(it => $C(it)).join('\n')}
+${component.body.map(it => $C(it)).join('\n')}
 })
 `.trim()
         case 'BlockStatement':
@@ -94,38 +103,31 @@ ${component.body.map(it => $C(it)).join('\n')}
 }
 `.trim()
         case 'BreakStatement':
-            return 'break;'
+            return `break;`
         case 'ContinueStatement':
-            return 'continue;'
+            return `continue;`
         case 'EmptyStatement':
-            return ';'
+            return `;`
         case 'FunctionCall':
             return `${$C(component.expression)}(${component.params.map(it => $C(it)).join(', ')})`
         case 'ExpressionStatement':
             return `${$C(component.expression)};`
-        case 'FunctionExpression':
+        case 'FunctionDeclarationStatement':
             return `
 ${component.name === 'main' ? 'int' : $CType(component.returnType)} ${component.name}(${component.arguments.map(it => $CType(it)).join(', ')}) ${$C(component.body)}
-            `.trim()
+`.trimStart()
         case 'Identifier':
             return component.name
         case 'IfStatement':
             return `
-if (${$C(component.condition)})
-    ${$C(component.then)}
-    ${component.else ? `${$C(component.else)}` : ''}
+if ((${$C(component.condition)}) == true) ${$C(component.then)} ${component.else ? `else ${$C(component.else)}` : ''}
             `.trim()
         case 'IfExpression':
             return `
-${CPP_KEYWORDS.ifExpr}(
-    ${$C(component.condition)},
-    {
-        ${component.then.body.map(it => $C(it)).join('\n')}
-    },
-    {
-        ${component.else.body.map(it => $C(it)).join('\n')}
-    })
-            `.trim()
+${CPP_KEYWORDS.ifExpr}((${$C(component.condition)}) == true,
+${CPP_KEYWORDS.blockExpr}({ ${component.then.body.map(it => $C(it)).join('\n')} }),
+${CPP_KEYWORDS.blockExpr}({ ${component.else.body.map(it => $C(it)).join('\n')} }))
+`.trim()
         case 'IndexExpression':
             return `${$C(component.expression)}[${$C(component.index)}]`
         case 'ReturnStatement':
@@ -138,14 +140,21 @@ ${CPP_KEYWORDS.ifExpr}(
             return `${$C(component.expression)}.${$C(component.property)}`
         case 'CppNativeCodeStatement':
             return component.code;
+        case 'TypeIdentifier':
+            return component.name
+        case 'StructInstantiationExpression':
+            return `${$C(component.ttype)} {
+${component.attributes.map(([id, val]) => `.${$C(id)} = ${$C(val)}`).join(',\n')}
+}`
+
     }
 
-    throw new Error();
+    throw new Error(`No impl for component type ${component.type}`);
 }
 
-const saeInterlude = `
-#ifndef __SAE__INTERLUDE
-#define __SAE__INTERLUDE
+export const prelude = `
+#ifndef __SAE__PRELUDE
+#define __SAE__PRELUDE
 #include <stdio.h>
 #include <functional>
 
@@ -164,25 +173,55 @@ struct ${CPP_KEYWORDS.structDeferredName}
     }
 };
 
-#define __INTERLUDE__SAE_CONCAT2(a, b) a##b
-#define __INTERLUDE__SAE_CONCAT(a, b) __INTERLUDE__SAE_CONCAT2(a, b)
+#define __PRELUDE__SAE_CONCAT2(a, b) a##b
+#define __PRELUDE__SAE_CONCAT(a, b) __PRELUDE__SAE_CONCAT2(a, b)
 
 #define ${CPP_KEYWORDS.deferStmt}(block)                                                 \
-    ${CPP_KEYWORDS.structDeferredName} __INTERLUDE__SAE_CONCAT(__deferred_, __COUNTER__)([&]() \
+    ${CPP_KEYWORDS.structDeferredName} __PRELUDE__SAE_CONCAT(__deferred_, __COUNTER__)([&]() \
                                                                                { block; });
 
 #define ${CPP_KEYWORDS.blockExpr}(block) ([&]() { block; })()
 #define ${CPP_KEYWORDS.ifExpr}(cond, thn, els) \
-    ((cond) ? ${CPP_KEYWORDS.blockExpr}(thn) : ${CPP_KEYWORDS.blockExpr}(els))
+    ((cond) ? (thn) : (els))
 
 #define ${CPP_KEYWORDS.takeStmt} return
 #endif
 `.trim()
 
+const prettyPrint = (code: string): string => {
+    const diff = (line: string) => {
+        const chars = line.split('');
+        const out = chars.filter(it => ['{', '(', '['].includes(it)).length - chars.filter(it => ['}', ')', ']'].includes(it)).length;
+        return out < 0
+            ? -1
+            : out > 0
+                ? 1
+                : 0;
+    }
+
+    const isEndOfIndent = (line: string) => {
+        const ln = line.trim();
+        if (!ln) {
+            return false;
+        }
+
+        return ['}', ']', ')'].includes(ln[0]);
+    }
+
+    let depth = 0;
+    let out = '';
+    for (const line of code.split('\n')) {
+        out += tab(isEndOfIndent(line) ? depth - 1 : depth) + line + '\n';
+        depth += diff(line)
+    }
+
+    return out
+}
+
 export const toC = (ast: AST): string => {
     return `
-${saeInterlude}
+${prelude}
 
-${ast.body.map(it => $C(it)).join('\n')}
+${prettyPrint(ast.body.map(it => $C(it)).join('\n'))}
 `.trim()
 }

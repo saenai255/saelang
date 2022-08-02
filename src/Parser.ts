@@ -1,5 +1,5 @@
 import 'colors';
-import AST, { AssignmentStatement, BinaryExpression, BlockExpression, BooleanLiteral, BreakStatement, ContinueStatement, DeferStatement, Expression, ExpressionStatement, FireStatement, FunctionCall, FunctionExpression, Identifier, IfExpression, IndexExpression, Literal, LoopStatement, LoopOverStatement, MemberExpression, NumericLiteral, ReturnStatement, Statement, StringLiteral, TakeStatement, Type, TypedArgument, VariableDeclarationStatement, Component, IfStatement, BlockStatement, CppNativeCodeStatement, TypeFunction, StructDeclarationStatement } from './AST';
+import AST, { AssignmentStatement, BinaryExpression, BlockExpression, BooleanLiteral, BreakStatement, ContinueStatement, DeferStatement, Expression, ExpressionStatement, FireStatement, FunctionCall, FunctionDeclarationStatement, Identifier, IfExpression, IndexExpression, Literal, LoopStatement, LoopOverStatement, MemberExpression, NumericLiteral, ReturnStatement, Statement, StringLiteral, TakeStatement, Type, TypedArgument, VariableDeclarationStatement, Component, IfStatement, BlockStatement, CppNativeCodeStatement, TypeFunction, InterfaceDeclarationStatement, StructDeclarationStatement, StructInstantiationExpression, TypeIdentifier } from './AST';
 import { TypeEmpty } from './ASTUtils';
 import { SaeError, SaeSyntaxError } from './Error'
 import { Token, TokenDetails, Tokenizer } from './Tokenizer'
@@ -31,6 +31,7 @@ export const componentTokenMap = new Map<Component, TokenDetails>()
 
 export class Parser {
   private lookahead: TokenDetails = null
+  private lastToken: TokenDetails = null
   private _string = '';
   private _tokenizer = new Tokenizer();
   public _file: string = null;
@@ -119,7 +120,7 @@ export class Parser {
       case '{': return this.BlockStatement(parent)
       case 'take': return this.TakeStatement(parent)
       case 'if': return this.IfStatement(parent)
-      case 'fn': return this.FunctionExpression(parent, isPublic)
+      case 'fn': return this.FunctionDeclarationStatement(parent, isPublic)
       case 'loop_over': return this.LoopOverStatement(parent)
       case 'loop': return this.LoopStatement(parent)
       case 'return': return this.ReturnStatement(parent)
@@ -127,6 +128,7 @@ export class Parser {
       case 'continue': return this.ContinueStatement(parent)
       case 'break': return this.BreakStatement(parent)
       case 'defer': return this.DeferStatement(parent)
+      case 'type_interface': return this.InterfaceDeclarationStatement(parent)
       case 'type_struct': return this.StructDeclarationStatement(parent)
       case 'let_mut': // fallthrough
       case 'let': return this.VariableDeclarationStatement(parent, isPublic)
@@ -138,35 +140,35 @@ export class Parser {
     }
   }
 
-  StructDeclarationStatement(parent: Component): StructDeclarationStatement {
-    const self: StructDeclarationStatement = {
+  InterfaceDeclarationStatement(parent: Component): InterfaceDeclarationStatement {
+    const self: InterfaceDeclarationStatement = {
       parent,
-      type: 'StructDeclarationStatement',
+      type: 'InterfaceDeclarationStatement',
       attributes: [],
       implements: [],
-      name: null
+      identifier: null
     }
 
-    const structToken = this.eat('type_struct');
-    registerComponentToken(structToken, self);
+    const interfaceToken = this.eat('type_interface');
+    registerComponentToken(interfaceToken, self);
 
     const identifier = this.Identifier(self);
 
-    const implIds: Identifier[] = [];
+    const implIds: TypeIdentifier[] = [];
     if (optionally(() => this.eat('impl'))) {
       do {
         optionally(() => this.eat(','))
-        const interfaceId = this.Identifier(self);
+        const interfaceId = this.TypeIdentifier(self);
         implIds.push(interfaceId);
       } while (this.lookahead.token?.type === ',');
     }
 
-    const attributes: [Identifier, Identifier | Type][] = [];
+    const attributes: [Identifier, TypeIdentifier | Type][] = [];
     this.eat('{');
     while (this.lookahead.token && this.lookahead.token.type !== '}') {
-      const attr: [Identifier, Identifier | Type] = [
+      const attr: [Identifier, TypeIdentifier | Type] = [
         this.Identifier(self),
-        either(() => this.Identifier(self), () => this._Type(self, true) as any)
+        either(() => this.TypeIdentifier(self), () => this._Type(self, true) as any)
       ];
 
       this.eat(';')
@@ -174,7 +176,58 @@ export class Parser {
     }
     this.eat('}');
 
-    self.name = identifier.name;
+    self.identifier = {
+      ...identifier,
+      type: 'TypeIdentifier'
+    };
+    self.attributes = attributes;
+    self.implements = implIds;
+
+    return self;
+  }
+
+  StructDeclarationStatement(parent: Component): StructDeclarationStatement {
+    const self: StructDeclarationStatement = {
+      parent,
+      type: 'StructDeclarationStatement',
+      attributes: [],
+      implements: [],
+      identifier: null
+    }
+
+    const structToken = this.eat('type_struct');
+    registerComponentToken(structToken, self);
+
+    const identifier = this.Identifier(self);
+
+    const implIds: TypeIdentifier[] = [];
+    if (optionally(() => this.eat('impl'))) {
+      do {
+        optionally(() => this.eat(','))
+        const interfaceId = this.TypeIdentifier(self);
+        implIds.push(interfaceId);
+      } while (this.lookahead.token?.type === ',');
+    }
+
+    const attributes: [Identifier, TypeIdentifier | Type][] = [];
+    this.eat('{');
+    while (this.lookahead.token && this.lookahead.token.type !== '}') {
+      const attr: [Identifier, TypeIdentifier | Type] = [
+        this.Identifier(self),
+        either(() => this.TypeIdentifier(self), () => this._Type(self, true) as any)
+      ];
+
+      this.eat(';')
+      attributes.push(attr);
+    }
+    this.eat('}');
+
+    self.identifier = {
+      type: 'TypeIdentifier',
+      name: identifier.name,
+      parent: identifier.parent
+    };
+
     self.attributes = attributes;
     self.implements = implIds;
 
@@ -208,6 +261,53 @@ export class Parser {
     return self
   }
 
+  StructInstantiationExpression(parent: Component, structExpr: Expression): StructInstantiationExpression {
+    const self: StructInstantiationExpression = {
+      type: 'StructInstantiationExpression',
+      ttype: null,
+      attributes: null,
+      parent
+    }
+
+    const structInstToken = this.lastToken.token
+    registerComponentToken(structInstToken, structExpr)
+    this.eat('{')
+
+    if (structExpr.type !== 'Identifier') {
+      throw new SaeSyntaxError(`Expected a struct identifier but got '${structExpr.type}'.`, structInstToken.up);
+    }
+
+    const structId = structExpr as Identifier;
+
+    const args: [Identifier, Expression][] = []
+
+    let firstArg = true;
+    if (this.lookahead.token?.type === 'identifier') {
+      do {
+        if (!firstArg) {
+          this.eat(',');
+        } {
+          firstArg = false;
+        }
+
+        args.push([
+          this.Identifier(self),
+          (this.eat('simple_assign'), this.Expression(self))
+        ]);
+      } while ((this.lookahead.token?.type as any) !== '}');
+    }
+
+    this.eat('}')
+
+    self.attributes = args
+    self.ttype = {
+      ...structId,
+      type: 'TypeIdentifier'
+    }
+
+    return self
+  }
+
   FunctionCall(parent: Component, func: Expression): FunctionCall {
     const self: FunctionCall = {
       type: 'FunctionCall',
@@ -236,9 +336,9 @@ export class Parser {
   }
 
 
-  FunctionExpression(parent: Component, isPublic = false): FunctionExpression {
-    const self: FunctionExpression = {
-      type: 'FunctionExpression',
+  FunctionDeclarationStatement(parent: Component, isPublic = false): FunctionDeclarationStatement {
+    const self: FunctionDeclarationStatement = {
+      type: 'FunctionDeclarationStatement',
       arguments: null,
       name: null,
       body: null,
@@ -279,7 +379,7 @@ export class Parser {
       }
       default: {
         try {
-          return this.Identifier(parent)
+          return this.TypeIdentifier(parent)
         } catch (e) {
           if (required) {
             throw e;
@@ -560,6 +660,10 @@ export class Parser {
     this.eat('}');
     registerComponentToken(blockToken, self)
 
+    if (!self.body.some(child => child.type === 'TakeStatement')) {
+      throw new SaeSyntaxError(`Block expressions must have at least one 'take' statement.`, blockToken.up);
+    }
+
     return self
   }
 
@@ -628,9 +732,9 @@ export class Parser {
     }
     this.eat(';');
 
-    if (self.right?.type === 'FunctionExpression' && self.right.name === null) {
-      self.right.name = self.left.name;
-    }
+    // if (self.right?.type === 'FunctionDeclarationStatement' && self.right.name === null) {
+    //   self.right.name = self.left.name;
+    // }
 
     return self
   }
@@ -669,6 +773,18 @@ export class Parser {
 
     registerComponentToken(token, self)
     return self;
+  }
+
+  /**
+   * Identifier
+   *   : IDENTIFIER
+   *   ;
+   */
+  TypeIdentifier(parent: Component): TypeIdentifier {
+    return {
+      ...this.Identifier(parent),
+      type: 'TypeIdentifier'
+    }
   }
 
   /**
@@ -864,30 +980,24 @@ export class Parser {
 
     const loopToken = this.eat('loop')
     registerComponentToken(loopToken, self)
-    const saeTrue: BooleanLiteral = {
-      type: 'BooleanLiteral',
-      value: true,
-      parent: self
-    };
 
-    let conditionOrBody: Expression = this.Expression(self);
-    let body: BlockStatement = null;
-    if (conditionOrBody.type === 'BlockExpression' && this.lookahead.token?.type !== '{') {
-      body = {
-        ...(conditionOrBody as BlockExpression),
-        type: 'BlockStatement'
-      }
+    let bodyOrCondition = either<BlockStatement | Expression>(() => this.BlockStatement(self), () => this.Expression(self));
+    let condition: Expression = null;
 
-      conditionOrBody = {
-        ...saeTrue
+    if (bodyOrCondition.type === 'BlockStatement') {
+      condition = {
+        type: 'BooleanLiteral',
+        value: true,
+        parent: self
       };
     } else {
-      body = this.BlockStatement(self)
+      condition = bodyOrCondition;
+      bodyOrCondition = this.BlockStatement(self);
     }
 
 
-    self.body = body
-    self.condition = conditionOrBody
+    self.body = bodyOrCondition as BlockStatement;
+    self.condition = condition
 
     return self
   }
@@ -929,13 +1039,13 @@ export class Parser {
       case '(': expr = this.ParenthesizedExpression(parent); break
       case '{': expr = this.BlockExpression(parent); break
       case 'if': expr = this.IfExpression(parent); break
+      // case 'fn': expr = this.FunctionDeclarationStatement(parent, isPublic); break
       case 'identifier': expr = this.Identifier(parent); break
-      case 'fn': expr = this.FunctionExpression(parent, isPublic); break
       default:
         expr = this.Literal(parent);
     }
 
-    while (['.', '('].includes(this.lookahead?.token?.type)) {
+    checker: while (['.', '(', '{'].includes(this.lookahead?.token?.type)) {
       switch (this.lookahead?.token?.type) {
         case '.':
           expr = this.MemberExpression(parent, expr)
@@ -943,6 +1053,11 @@ export class Parser {
         case '(':
           expr = this.FunctionCall(parent, expr)
           break
+        case '{':
+          if (!['IfExpression', 'IfStatement', 'LoopOverStatement', 'LoopStatement'].includes(expr.parent?.type)) {
+            expr = this.StructInstantiationExpression(parent, expr)
+          }
+          break checker
       }
     }
 
@@ -1042,13 +1157,14 @@ export class Parser {
       throw new SaeSyntaxError(`Unexpected token "${token.value}", expected "${tokenType}"`, this.lookahead);
     }
 
+    this.lastToken = this.lookahead
     this.lookahead = this._tokenizer.getNextToken();
     return token;
   }
 }
 
 const registerComponentToken = (token: Token, component: any): Token => {
-  if (token.up) {
+  if (token && token.up) {
     componentTokenMap.set(component, token.up)
   }
   return token;

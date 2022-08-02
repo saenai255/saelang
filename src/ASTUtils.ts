@@ -13,19 +13,22 @@ export const BlockStatement = (...stmts: t.Statement[]): t.BlockStatement => ({ 
 export const IfExpression = (condition: t.Expression, then: t.BlockExpression, otherwise: t.BlockExpression = null): t.IfExpression => ({ type: 'IfExpression', condition, then, else: otherwise })
 export const IfStatement = (condition: t.Expression, then: t.BlockStatement, otherwise: t.BlockStatement = null): t.IfStatement => ({ type: 'IfStatement', condition, then, else: otherwise })
 export const Identifier = (name: string): t.Identifier => ({ type: 'Identifier', name })
+export const TypeIdentifier = (name: string): t.TypeIdentifier => ({ type: 'TypeIdentifier', name })
 export const ExpressionStatement = (expr: t.Expression): t.ExpressionStatement => ({ type: 'ExpressionStatement', expression: expr })
+export const StructInstantiationExpression = (ttype: t.TypeIdentifier, args: [t.Identifier, t.Expression][] = []): t.StructInstantiationExpression => ({ type: 'StructInstantiationExpression', ttype, attributes: args })
 export const BinaryExpression = (left: t.Expression, operator: t.BinaryExpression['operator'], right: t.Expression): t.BinaryExpression => ({ type: 'BinaryExpression', left, operator, right })
 export const TypedArgument = (name: string, type: t.Type, mutable = false): t.TypedArgument => ({ type: 'TypedArgument', name, argType: type, mutable })
 export const TypeFunction = (args: NT<t.TypeFunction>): t.TypeFunction => ({ type: 'TypeFunction', ...args });
 export const EmptyStatement = (): t.EmptyStatement => ({ type: 'EmptyStatement' })
 export const TakeStatement = (expr: t.Expression): t.TakeStatement => ({ type: 'TakeStatement', value: expr })
 export const ReturnStatement = (expr: t.Expression): t.ReturnStatement => ({ type: 'ReturnStatement', value: expr })
-export const FunctionExpression = (args: NT<t.FunctionExpression>): t.FunctionExpression => ({ type: 'FunctionExpression', ...args })
+export const FunctionDeclarationStatement = (args: NT<t.FunctionDeclarationStatement>): t.FunctionDeclarationStatement => ({ type: 'FunctionDeclarationStatement', ...args })
 export const FunctionCall = (func: t.Expression, args: t.Expression[] = []): t.FunctionCall => ({ type: 'FunctionCall', expression: func, params: args })
 export const TypeEmpty = (parent?: t.Component): t.TypeEmpty => ({ type: 'TypeEmpty', ...(parent ? { parent } : {}) })
 export const TypePrimitive = (type: t.Primitives): t.Primitive => ({ type: 'PrimitiveType', value: type })
 export const AssignmentStatement = (left: t.AssignmentStatement['left'], operator: t.AssignmentStatement['operator'], right: t.AssignmentStatement['right']): t.AssignmentStatement => ({ type: 'AssignmentStatement', left, right, operator })
 export const VariableDeclarationStatement = (args: NT<t.VariableDeclarationStatement>): t.VariableDeclarationStatement => ({ type: 'VariableDeclarationStatement', ...args })
+export const InterfaceDeclarationStatement = (args: NT<t.InterfaceDeclarationStatement>): t.InterfaceDeclarationStatement => ({ type: 'InterfaceDeclarationStatement', ...args })
 export const StructDeclarationStatement = (args: NT<t.StructDeclarationStatement>): t.StructDeclarationStatement => ({ type: 'StructDeclarationStatement', ...args })
 export const MemberExpression = (expr: t.Expression, property: t.Identifier): t.MemberExpression => ({ type: 'MemberExpression', expression: expr, property })
 export const IndexExpression = (expr: t.Expression, index: t.Expression): t.IndexExpression => ({ type: 'IndexExpression', expression: expr, index })
@@ -54,7 +57,7 @@ export const getChildren = (component: t.Component): t.Component[] => {
             return [component.functionCall]
         case 'ExpressionStatement':
             return [component.expression]
-        case 'FunctionExpression':
+        case 'FunctionDeclarationStatement':
             return getChildren(component.body)
         case 'LoopStatement':
         case 'LoopOverStatement':

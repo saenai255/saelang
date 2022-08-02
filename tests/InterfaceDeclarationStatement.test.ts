@@ -1,15 +1,15 @@
-import { ExpressionStatement, Identifier, Program, StructDeclarationStatement, TypeFunction, TypeIdentifier, TypePrimitive } from "../src/ASTUtils"
+import { ExpressionStatement, Identifier, Program, InterfaceDeclarationStatement, TypeFunction, TypePrimitive, TypeIdentifier } from "../src/ASTUtils"
 import { expectTree } from "./util"
 
-describe('StructDeclarationStatement', () => {
+describe('InterfaceDeclarationStatement', () => {
     test(`with 1 primitive attribute`, () => expectTree(
         `
-        type struct Number {
+        type interface Number {
             value i32;
         }
         `,
         Program(
-            StructDeclarationStatement({
+            InterfaceDeclarationStatement({
                 identifier: TypeIdentifier('Number'),
                 attributes: [
                     [Identifier('value'), TypePrimitive('i32')]
@@ -19,12 +19,12 @@ describe('StructDeclarationStatement', () => {
 
     test(`with 1 custom attribute`, () => expectTree(
         `
-        type struct Number {
+        type interface Number {
             value Int;
         }
         `,
         Program(
-            StructDeclarationStatement({
+            InterfaceDeclarationStatement({
                 identifier: TypeIdentifier('Number'),
                 attributes: [
                     [Identifier('value'), TypeIdentifier('Int')]
@@ -34,13 +34,13 @@ describe('StructDeclarationStatement', () => {
 
     test(`with 2 attributes`, () => expectTree(
         `
-        type struct Number {
+        type interface Number {
             value Int;
             absolute bool;
         }
         `,
         Program(
-            StructDeclarationStatement({
+            InterfaceDeclarationStatement({
                 identifier: TypeIdentifier('Number'),
                 attributes: [
                     [Identifier('value'), TypeIdentifier('Int')],
@@ -51,10 +51,10 @@ describe('StructDeclarationStatement', () => {
 
     test(`with 0 attributes`, () => expectTree(
         `
-        type struct Number {}
+        type interface Number {}
         `,
         Program(
-            StructDeclarationStatement({
+            InterfaceDeclarationStatement({
                 identifier: TypeIdentifier('Number'),
                 attributes: [],
                 implements: []
@@ -62,10 +62,10 @@ describe('StructDeclarationStatement', () => {
 
     test(`with 1 impl`, () => expectTree(
         `
-        type struct Number impl Countable {}
+        type interface Number impl Countable {}
         `,
         Program(
-            StructDeclarationStatement({
+            InterfaceDeclarationStatement({
                 identifier: TypeIdentifier('Number'),
                 attributes: [],
                 implements: [
@@ -75,10 +75,10 @@ describe('StructDeclarationStatement', () => {
 
     test(`with 2 impl`, () => expectTree(
         `
-        type struct Number impl Countable, Serializable {}
+        type interface Number impl Countable, Serializable {}
         `,
         Program(
-            StructDeclarationStatement({
+            InterfaceDeclarationStatement({
                 identifier: TypeIdentifier('Number'),
                 attributes: [],
                 implements: [
@@ -89,13 +89,13 @@ describe('StructDeclarationStatement', () => {
 
     test(`with method attribute`, () => expectTree(
         `
-        type struct Number {
+        type interface Number {
             is_positive () bool;
             square() Number;
         }
         `,
         Program(
-            StructDeclarationStatement({
+            InterfaceDeclarationStatement({
                 identifier: TypeIdentifier('Number'),
                 attributes: [
                     [Identifier('is_positive'), TypeFunction({

@@ -75,14 +75,22 @@ export interface BinaryExpression {
     | '!&&'
 }
 
-export interface FunctionExpression {
-    type: 'FunctionExpression';
-    name: string | null;
+export interface FunctionDeclarationStatement {
+    type: 'FunctionDeclarationStatement';
+    name: string;
     returnType: Type;
     arguments: TypedArgument[];
     body: BlockStatement;
     parent?: Component;
     public: boolean;
+}
+
+export interface FunctionDeclarationExpression {
+    type: 'FunctionDeclarationExpression';
+    returnType: Type;
+    arguments: TypedArgument[];
+    body: BlockStatement;
+    parent?: Component;
 }
 
 export interface MemberExpression {
@@ -145,18 +153,26 @@ export type TypeArray = {
     inner: Type
 }
 
+export type InterfaceDeclarationStatement = {
+    type: 'InterfaceDeclarationStatement'
+    parent?: Component;
+    identifier: TypeIdentifier;
+    implements: TypeIdentifier[];
+    attributes: [Identifier, TypeIdentifier | Type][];
+}
+
 export type StructDeclarationStatement = {
     type: 'StructDeclarationStatement'
     parent?: Component;
-    name: string;
-    implements: Identifier[];
-    attributes: [Identifier, Identifier | Type][];
+    identifier: TypeIdentifier;
+    implements: TypeIdentifier[];
+    attributes: [Identifier, TypeIdentifier | Type][];
 }
 
 export type TypeInterface = {
     type: 'TypeInterface'
     parent?: Component;
-    name: string;
+    identifier: TypeIdentifier;
     implements: TypeInterface[];
     attributes: TypedArgument[];
 }
@@ -164,7 +180,7 @@ export type TypeInterface = {
 export type TypeStruct = {
     type: 'TypeStruct'
     parent?: Component;
-    name: string;
+    identifier: TypeIdentifier;
     implements: TypeInterface[];
     attributes: TypedArgument[];
 }
@@ -196,7 +212,7 @@ export type Type =
     | TypeStruct
     | TypeInterface
     | TypeUnion
-    | Identifier
+    | TypeIdentifier
 
 export interface TypeEmpty {
     parent?: Component;
@@ -225,6 +241,12 @@ export interface Identifier {
     ttype?: Type;
 }
 
+export interface TypeIdentifier {
+    type: 'TypeIdentifier';
+    parent?: Component;
+    name: string;
+}
+
 export interface LoopStatement {
     type: 'LoopStatement';
     condition: Expression;
@@ -239,6 +261,13 @@ export interface LoopOverStatement {
     body: BlockStatement;
 }
 
+export type StructInstantiationExpression = {
+    type: 'StructInstantiationExpression';
+    parent?: Component;
+    ttype: TypeIdentifier,
+    attributes: [Identifier, Expression][];
+}
+
 export type Literal =
     | NumericLiteral
     | StringLiteral
@@ -249,11 +278,11 @@ export type Expression =
     | BinaryExpression
     | IfExpression
     | Identifier
-    | FunctionExpression
     | FunctionCall
     | MemberExpression
     | IndexExpression
     | BlockExpression
+    | StructInstantiationExpression
 
 export interface ExpressionStatement {
     type: 'ExpressionStatement',
@@ -341,7 +370,7 @@ export type Statement =
     | ReturnStatement
     | IfStatement
     | LoopStatement
-    | FunctionExpression
+    | FunctionDeclarationStatement
     | AssignmentStatement
     | VariableDeclarationStatement
     | DeferStatement
@@ -350,7 +379,9 @@ export type Statement =
     | ContinueStatement
     | BreakStatement
     | CppNativeCodeStatement
+    | InterfaceDeclarationStatement
     | StructDeclarationStatement
+    | TypeIdentifier
 
 export type Component =
     | Statement

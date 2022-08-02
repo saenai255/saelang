@@ -1,11 +1,11 @@
-import { BinaryExpression, FunctionExpression, Identifier, IfExpression, NumericLiteral, Program, ReturnStatement, TakeStatement, TypedArgument, TypeEmpty, TypePrimitive, BlockStatement, BlockExpression } from "../src/ASTUtils"
+import { BinaryExpression, FunctionDeclarationStatement, Identifier, IfExpression, NumericLiteral, Program, ReturnStatement, TakeStatement, TypedArgument, TypeEmpty, TypePrimitive, BlockStatement, BlockExpression } from "../src/ASTUtils"
 import { expectTree } from "./util"
 
-describe('FunctionExpression', () => {
+describe('FunctionDeclarationStatement', () => {
     test(`empty function`, () => expectTree(
         `fn empty() {}`,
         Program(
-            FunctionExpression({
+            FunctionDeclarationStatement({
                 name: 'empty',
                 arguments: [],
                 returnType: TypeEmpty(),
@@ -16,7 +16,7 @@ describe('FunctionExpression', () => {
     test(`with return type`, () => expectTree(
         `fn empty() i32 {}`,
         Program(
-            FunctionExpression({
+            FunctionDeclarationStatement({
                 name: 'empty',
                 arguments: [],
                 returnType: TypePrimitive('i32'),
@@ -29,7 +29,7 @@ describe('FunctionExpression', () => {
             return 1;
         }`,
         Program(
-            FunctionExpression({
+            FunctionDeclarationStatement({
                 name: 'empty',
                 arguments: [],
                 returnType: TypeEmpty(),
@@ -42,7 +42,7 @@ describe('FunctionExpression', () => {
     test(`with single param`, () => expectTree(
         `fn greet(name str) {}`,
         Program(
-            FunctionExpression({
+            FunctionDeclarationStatement({
                 name: 'greet',
                 arguments: [
                     TypedArgument('name', TypePrimitive('str'))
@@ -55,7 +55,7 @@ describe('FunctionExpression', () => {
     test(`with multiple params`, () => expectTree(
         `fn greet(name str, age u8) {}`,
         Program(
-            FunctionExpression({
+            FunctionDeclarationStatement({
                 name: 'greet',
                 arguments: [
                     TypedArgument('name', TypePrimitive('str')),
@@ -75,7 +75,7 @@ describe('FunctionExpression', () => {
             }
         }`,
         Program(
-            FunctionExpression({
+            FunctionDeclarationStatement({
                 name: 'foo',
                 arguments: [
                     TypedArgument('nr', TypePrimitive('i32')),
