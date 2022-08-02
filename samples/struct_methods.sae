@@ -1,0 +1,25 @@
+type struct Person {
+    name str;
+    age i32;
+}
+
+fn get_age(person Person) i32 {
+    return person.age;
+}
+
+fn main() {
+    let name = "Paul";
+    let me = Person {
+        name = name,
+        age = 25
+    };
+
+    let increment (it i32)i32 = fn (it i32) -> it + 1;
+
+    printf(
+        "%s is currently %d years old, but next year he will be %d\n",
+        me.name,
+        me->get_age(),
+        me->get_age()->increment()
+    );
+}

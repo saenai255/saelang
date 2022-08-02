@@ -22,7 +22,7 @@ const saeToCppIdentifiers = {
     sprintf: 'sprintf'
 };
 
-export default class ASTChecker {
+export default class TypeChecker {
     public check(ast: Sae.Component) {
         this.applyTypes(ast);
         this.checkIdentifiers(ast);

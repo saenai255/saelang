@@ -1,0 +1,12 @@
+
+
+fn main() {
+    let multiply = fn(a i32, b i32) -> a * b;
+    let add = fn(a i32, b i32) -> a + b;
+
+    let result = 5
+        ->multiply(3)
+        ->add(10)
+        ->multiply(2);
+    printf("((5 * 3) + 10) * 2 = %d\n", result);
+}

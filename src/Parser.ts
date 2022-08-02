@@ -1,5 +1,5 @@
 import 'colors';
-import AST, { AssignmentStatement, BinaryExpression, BlockExpression, BooleanLiteral, BreakStatement, ContinueStatement, DeferStatement, Expression, ExpressionStatement, FireStatement, FunctionCall, FunctionDeclarationStatement, Identifier, IfExpression, IndexExpression, Literal, LoopStatement, LoopOverStatement, MemberExpression, NumericLiteral, ReturnStatement, Statement, StringLiteral, TakeStatement, Type, TypedArgument, VariableDeclarationStatement, Component, IfStatement, BlockStatement, CppNativeCodeStatement, TypeFunction, InterfaceDeclarationStatement, StructDeclarationStatement, StructInstantiationExpression, TypeIdentifier } from './AST';
+import AST, { AssignmentStatement, BlockExpression, BooleanLiteral, BreakStatement, ContinueStatement, DeferStatement, Expression, ExpressionStatement, FireStatement, FunctionCall, FunctionDeclarationStatement, Identifier, IfExpression, IndexExpression, Literal, LoopStatement, LoopOverStatement, MemberExpression, NumericLiteral, ReturnStatement, Statement, StringLiteral, TakeStatement, Type, TypedArgument, VariableDeclarationStatement, Component, IfStatement, BlockStatement, CppNativeCodeStatement, TypeFunction, InterfaceDeclarationStatement, StructDeclarationStatement, StructInstantiationExpression, TypeIdentifier, FunctionDeclarationExpression } from './AST';
 import { TypeEmpty } from './ASTUtils';
 import { SaeError, SaeSyntaxError } from './Error'
 import { Token, TokenDetails, Tokenizer } from './Tokenizer'
@@ -335,6 +335,59 @@ export class Parser {
     return self
   }
 
+  PipedFunctionExpression(parent: Component, paramExpr: Expression): FunctionCall {
+    let out: Expression = paramExpr;
+    do {
+      const pipeFnToken = this.eat('->');
+      const funcCall = this.Expression(parent) as FunctionCall;
+      funcCall.params = [out, ...funcCall.params];
+      out = funcCall;
+      registerComponentToken(pipeFnToken, funcCall);
+    } while (this.lookahead.token?.type === '->');
+
+    return out;
+  }
+
+  FunctionDeclarationExpression(parent: Component): FunctionDeclarationExpression {
+    const self: FunctionDeclarationExpression = {
+      type: 'FunctionDeclarationExpression',
+      arguments: null,
+      body: null,
+      returnType: null,
+      parent
+    }
+
+    const fnToken = this.eat('fn');
+    registerComponentToken(fnToken, self)
+    this.eat('(');
+    const params = this.FormalParameterList(self);
+    this.eat(')')
+    const retType = this._Type(self, false) || null;
+    this.eat('->');
+
+    let block: BlockStatement = null;
+    if (this.lookahead.token?.type === '{') {
+      block = this.BlockStatement(self);
+    } else {
+      block = {
+        type: 'BlockStatement',
+        body: [{
+          type: 'ReturnStatement',
+          value: null
+        }],
+        parent: self
+      }
+
+      block.body[0].parent = self;
+      (block.body[0] as ReturnStatement).value = this.Expression(block);
+    }
+
+    self.arguments = params
+    self.body = block
+    self.returnType = retType
+
+    return self
+  }
 
   FunctionDeclarationStatement(parent: Component, isPublic = false): FunctionDeclarationStatement {
     const self: FunctionDeclarationStatement = {
@@ -1011,27 +1064,31 @@ export class Parser {
   }
 
   PrimaryExpression(parent: Component): Expression {
-    const isPublic = !!optionally(() => this.eat('pub'))
-
     let expr: Expression
     switch (this.lookahead.token.type) {
       case '(': expr = this.ParenthesizedExpression(parent); break
       case 'do': expr = this.BlockExpression(parent); break
       case 'if': expr = this.IfExpression(parent); break
-      // case 'fn': expr = this.FunctionDeclarationStatement(parent, isPublic); break
+      case 'fn': expr = this.FunctionDeclarationExpression(parent); break
       case 'identifier': expr = this.Identifier(parent); break
       default:
         expr = this.Literal(parent);
     }
 
-    checker: while (['.', '(', '{'].includes(this.lookahead?.token?.type)) {
+    checker: while (['.', '(', '{', '->'].includes(this.lookahead?.token?.type)) {
       switch (this.lookahead?.token?.type) {
         case '.':
           expr = this.MemberExpression(parent, expr)
           break
         case '(':
-          expr = this.FunctionCall(parent, expr)
+          expr = this.FunctionCall(parent, expr);
+          if ((this.lookahead?.token?.type as string) === '->') {
+            break checker
+          }
           break
+        case '->':
+          expr = this.PipedFunctionExpression(parent, expr)
+          break checker
         case '{':
           if (!['IfExpression', 'IfStatement', 'LoopOverStatement', 'LoopStatement'].includes(expr.parent?.type)) {
             expr = this.StructInstantiationExpression(parent, expr)

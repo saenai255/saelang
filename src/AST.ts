@@ -283,6 +283,7 @@ export type Expression =
     | IndexExpression
     | BlockExpression
     | StructInstantiationExpression
+    | FunctionDeclarationExpression
 
 export interface ExpressionStatement {
     type: 'ExpressionStatement',

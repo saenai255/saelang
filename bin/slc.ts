@@ -2,9 +2,9 @@
 'use strict';
 import 'colors';
 
-import ASTChecker from "../src/ASTChecker";
+import TypeChecker from "../src/TypeChecker";
 import { Parser } from "../src/Parser";
-import { prelude, toC } from "../src/ASTToCpp";
+import { prelude, toC } from "../src/Transpiler";
 import AST from "../src/AST";
 import yargs from 'yargs'
 import { hideBin } from 'yargs/helpers'
@@ -36,7 +36,7 @@ function transpile(source: string, file?: string): string {
     const parser = new Parser();
     parser._file = file;
     const ast = parser.parse(source);
-    const expandedAST = new ASTChecker().check(ast) as AST
+    const expandedAST = new TypeChecker().check(ast) as AST
     try {
         const c = toC(expandedAST as AST);
         progress = progress.succeed();
