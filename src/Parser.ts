@@ -1,4 +1,4 @@
-import AST, { AssignmentStatement, BinaryExpression, BlockExpression, BooleanLiteral, BreakStatement, ContinueStatement, DeferStatement, Expression, ExpressionStatement, FireStatement, FunctionCall, FunctionExpression, Identifier, IfExpression, IndexExpression, Literal, LoopStatement, LoopOverStatement, MemberExpression, NumericLiteral, ReturnStatement, Statement, StringLiteral, TakeStatement, Type, TypedArgument, TypeExpression, VariableDeclarationStatement, Component, IfStatement, BlockStatement } from './AST';
+import AST, { AssignmentStatement, BinaryExpression, BlockExpression, BooleanLiteral, BreakStatement, ContinueStatement, DeferStatement, Expression, ExpressionStatement, FireStatement, FunctionCall, FunctionExpression, Identifier, IfExpression, IndexExpression, Literal, LoopStatement, LoopOverStatement, MemberExpression, NumericLiteral, ReturnStatement, Statement, StringLiteral, TakeStatement, Type, TypedArgument, TypeExpression, VariableDeclarationStatement, Component, IfStatement, BlockStatement, TypeStruct, StructDeclarationStatement, StructConstructorExpression, StructConstructorNamedFieldAssignment } from './AST';
 import { TypeEmpty } from './ASTUtils';
 import { SaeError, SaeSyntaxError } from './Error'
 import { Token, TokenDetails, Tokenizer } from './Tokenizer'
@@ -120,6 +120,7 @@ export class Parser {
       case 'continue': return this.ContinueStatement(parent)
       case 'break': return this.BreakStatement(parent)
       case 'defer': return this.DeferStatement(parent)
+      case 'struct': return this.StructDeclarationStatement(parent)
       case 'let_mut': // fallthrough
       case 'let': return this.VariableDeclarationStatement(parent, isPublic)
       case 'identifier':
@@ -254,7 +255,7 @@ export class Parser {
    *   | FormalParameterList ',' Identifier
    *   ;
    */
-  FormalParameterList(parent: Component): TypedArgument[] {
+  FormalParameterList(parent: Component, separatorToken = ','): TypedArgument[] {
     const params: TypedArgument[] = [];
 
     while (this._lookahead.token.type === 'identifier' || this._lookahead.token.type === 'primitive') {
@@ -803,6 +804,52 @@ export class Parser {
     return self
   }
 
+  NativeCodeExpression(parent: Component): Expression {
+    const self: Expression = {
+      type: 'NativeCodeExpression',
+      value: null,
+      parent
+    }
+
+    this._eat('native_code')
+    this._eat('(')
+    self.value = this.StringLiteral(parent).value
+    this._eat(')')
+
+
+    return self
+  }
+
+  StructDeclarationStatement(parent: Component): StructDeclarationStatement {
+    const self: StructDeclarationStatement = {
+      type: 'StructDeclarationStatement',
+      body: null,
+      parent
+    }
+
+    this._eat('struct')
+    const name = this.Identifier(self).name
+    const body = this.TypeStruct(self, name)
+    self.body = body
+
+    return self
+  }
+
+  TypeStruct(parent: Component, name: string = undefined): TypeStruct {
+    const self: TypeStruct = {
+      type: 'TypeStruct',
+      fields: [],
+      name,
+      parent
+    }
+
+    this._eat('{')
+    self.fields = this.FormalParameterList(parent, ';')
+    this._eat('}')
+
+    return self;
+  }
+
   PrimaryExpression(parent: Component): Expression {
     const isPublic = !!optional(() => this._eat('pub'))
 
@@ -813,11 +860,12 @@ export class Parser {
       case 'if': expr = this.IfExpression(parent); break
       case 'identifier': expr = this.Identifier(parent); break
       case 'fn': expr = this.FunctionExpression(parent, isPublic); break
+      case 'native_code': expr = this.NativeCodeExpression(parent); break
       default:
         expr = this.Literal(parent);
     }
 
-    while (['.', '('].includes(this._lookahead?.token?.type)) {
+    while (['.', '(', '{'].includes(this._lookahead?.token?.type)) {
       switch (this._lookahead?.token?.type) {
         case '.':
           expr = this.MemberExpression(parent, expr)
@@ -825,10 +873,57 @@ export class Parser {
         case '(':
           expr = this.FunctionCall(parent, expr)
           break
+        case '{':
+          expr = this.StructConstructorExpression(parent, expr)
       }
     }
 
     return expr;
+  }
+
+  StructConstructorExpression(parent: Component, expr: Expression): StructConstructorExpression {
+    const self: StructConstructorExpression = {
+      type: 'StructConstructorExpression',
+      struct: {
+        type: 'TypeStruct',
+        name: expr.type === 'Identifier' ? expr.name : null,
+        parent: null,
+        fields: []
+      },
+      params: [],
+      parent
+    }
+
+    this._eat('{')
+    self.params = this.StructConstructorNamedFieldAssignmentList(parent)
+    this._eat('}')
+
+    return self
+  }
+
+  StructConstructorNamedFieldAssignment(parent: Component): StructConstructorNamedFieldAssignment {
+    const self: StructConstructorNamedFieldAssignment = {
+      fieldName: null,
+      value: null,
+    }
+
+    this._eat('.')
+    self.fieldName = this._eat('identifier').value
+    this._eat('simple_assign')
+    self.value = this.Expression(parent)
+
+    return self
+  }
+
+  StructConstructorNamedFieldAssignmentList(parent: Component): StructConstructorNamedFieldAssignment[] {
+    const self: StructConstructorNamedFieldAssignment[] = []
+
+    while (this._lookahead.token.type === '.') {
+      self.push(this.StructConstructorNamedFieldAssignment(parent))
+      this._eat(',')
+    }
+
+    return self
   }
 
   /**

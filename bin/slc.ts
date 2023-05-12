@@ -3,25 +3,23 @@
 
 import ASTExpander from "../src/ASTExpander";
 import { Parser } from "../src/Parser";
-import { toC } from "../src/ASTToCpp";
+import { toCpp } from "../src/C++Backend";
 import AST from "../src/AST";
 import yargs from 'yargs'
 import { hideBin } from 'yargs/helpers'
-import { join } from 'path'
 import * as fs from 'fs'
 import * as cp from 'child_process'
 import * as os from 'os'
 
 const debugSource = `
+struct Person {
+    name str
+}
+
 fn main() {
-    defer printf("this should run last");
-    printf("this should run first");
-
-    let x = {
-        take 1;
+    let p = Person {
+        .name = "Paul",
     };
-
-    printf("x = %d\\n", x);
 }
 `;
 
@@ -29,7 +27,7 @@ function transpile(source: string): string {
     const parser = new Parser();
     const ast = parser.parse(source);
     const expandedAST = new ASTExpander().expand(ast) as AST
-    return toC(expandedAST as AST);
+    return toCpp(expandedAST as AST);
 }
 
 function transpileFile(path: string): string {
@@ -37,7 +35,7 @@ function transpileFile(path: string): string {
     return transpile(src)
 }
 
-function compileC(path: string, outpath: string) {
+function compileCpp(path: string, outpath: string) {
     const compiler = process.env.CXX || 'g++'
     cp.execSync(`${compiler} ${path} -O3 -o ${outpath}`)
 }
@@ -51,11 +49,10 @@ function compileFile(path: string): string {
 
     const code = transpileFile(path)
     emitCode(cPath, code)
-    compileC(cPath, exePath)
+    compileCpp(cPath, exePath)
     fs.unlinkSync(cPath)
 
     return exePath
-
 }
 
 function transpileDebug(): string {
@@ -73,7 +70,7 @@ function emitCode(path: string, code: string) {
 
 yargs(hideBin(process.argv))
     .demandCommand(1)
-    .command('transpile [file]', 'transpile the SAE file to C', yargs => {
+    .command('transpile [file]', 'transpile the SAE file to C++', yargs => {
         return yargs
             .positional('file', {
                 describe: 'file to transpile',
@@ -89,6 +86,21 @@ yargs(hideBin(process.argv))
     }, ({ file, output }) => {
         const cCode = transpileFile(file);
         emitCode(output, cCode)
+    })
+    .command('build [file]', 'build C++ file', yargs => {
+        return yargs.positional('file', {
+            describe: 'file to build',
+            type: 'string'
+        }).demandOption('file')
+        .option('output', {
+            describe: 'output file',
+            type: 'string',
+            alias: 'o',
+        })
+        .demandOption('output')
+    }, ({ file, output }) => {
+        const cCode = transpileFile(file);
+        fs.writeFileSync(output, cCode)
     })
     .command('compile [file]', 'compile the SAE file to native executable', yargs => {
         return yargs

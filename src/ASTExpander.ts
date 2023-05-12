@@ -12,6 +12,15 @@ export default class ASTExpander {
     }
 
     private applyTypes(ast: Sae.Component) {
+        getAllChildrenOfType(ast, 'StructDeclarationStatement')
+            .forEach((struct: Sae.StructDeclarationStatement) => {
+                getAllChildrenOfType(ast, 'VariableDeclarationStatement')
+                    .filter((it: Sae.VariableDeclarationStatement) => !it.ttype && it.right && it.right.type === 'StructConstructorExpression' && it.right.struct.name === struct.body.name)
+                    .forEach((structConstructor: Sae.StructConstructorExpression) => {
+                        structConstructor.struct = struct.body 
+                    })
+            })
+
         getAllChildrenOfType(ast, 'VariableDeclarationStatement')
             .filter((it: Sae.VariableDeclarationStatement) => !it.ttype)
             .forEach((it: Sae.VariableDeclarationStatement) => {
@@ -35,6 +44,7 @@ export default class ASTExpander {
             .forEach((it: Sae.BlockExpression) => {
                 it.ttype = this.resolveType(it)
             })
+
     }
 
     private resolveType(component: Sae.Component): Sae.Type {
@@ -61,6 +71,9 @@ export default class ASTExpander {
                     assert(false, 'no type found')
                 }
             }
+            case 'StructConstructorExpression': {
+                return component.struct
+            }
             case 'VariableDeclarationStatement': {
                 if (component.ttype) {
                     return component.ttype
@@ -70,7 +83,7 @@ export default class ASTExpander {
                     return this.resolveType(component.right)
                 }
 
-                assert(false, 'uninitialised variable declarations must have a type')
+                assert(false, 'uninitialized variable declarations must have a type')
             }
             case 'BlockExpression': {
                 const takeStmts = getChildrenOfType(component, 'TakeStatement');

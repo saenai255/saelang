@@ -1,4 +1,9 @@
+let assert = @@Native("__INTERLUDE__SAE_ASSERT");
+
+let mut sum_called = 0;
+
 fn sum(x i32, y i32) i32 {
+    sum_called += 1;
     return x + y;
 }
 
@@ -6,5 +11,7 @@ fn main() {
     let a = 5;
     let b = 3;
     
-    printf("%d + %d = %d\n", a, b, sum(a, b));
+    printf("sum(%d, %d) = %d\n", a, b, sum(a, b));
+    assert(a + b == 8);
+    assert(sum_called == 1);
 }

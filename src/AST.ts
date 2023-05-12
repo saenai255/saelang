@@ -124,6 +124,17 @@ export interface FunctionCall {
     ttype?: Type;
 }
 
+export interface StructConstructorNamedFieldAssignment {
+    fieldName: string;
+    value: Expression;
+}
+export interface StructConstructorExpression {
+    type: 'StructConstructorExpression';
+    parent?: Component;
+    struct: TypeStruct;
+    params: StructConstructorNamedFieldAssignment[];
+}
+
 export type TypeFunction = {
     type: 'TypeFunction';
     paramTypes: Type[];
@@ -140,13 +151,13 @@ export type TypeArray = {
     type: 'TypeArray';
     inner: Type
 }
-
 export type Type =
     | TypeEmpty
     | Primitive
     | TypeExpression
     | TypeFunction
     | TypePointer
+    | TypeStruct
 
 export interface TypeEmpty {
     parent?: Component;
@@ -197,6 +208,25 @@ export type Literal =
     | StringLiteral
     | BooleanLiteral
 
+export interface NativeCodeExpression {
+    type: 'NativeCodeExpression';
+    parent?: Component;
+    value: string;
+}
+
+export interface StructDeclarationStatement {
+    type: 'StructDeclarationStatement';
+    parent?: Component;
+    body: TypeStruct;
+}
+
+export interface TypeStruct {
+    type: 'TypeStruct';
+    parent?: Component;
+    fields: TypedArgument[];
+    name?: string;
+}
+
 export type Expression =
     | Literal
     | BinaryExpression
@@ -207,6 +237,8 @@ export type Expression =
     | MemberExpression
     | IndexExpression
     | BlockExpression
+    | NativeCodeExpression
+    | StructConstructorExpression
 
 export interface ExpressionStatement {
     type: 'ExpressionStatement',
@@ -302,6 +334,7 @@ export type Statement =
     | LoopOverStatement
     | ContinueStatement
     | BreakStatement
+    | StructDeclarationStatement
 
 export type Component =
     | Statement

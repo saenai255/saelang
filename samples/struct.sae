@@ -1,0 +1,11 @@
+struct Person {
+    name str
+}
+
+fn main() {
+    let p = Person {
+        .name = "Paul",
+    };
+
+    printf("Person[name = '%s']\n", p.name);
+}

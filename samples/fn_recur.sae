@@ -1,3 +1,5 @@
+let assert = @@Native("__INTERLUDE__SAE_ASSERT");
+
 fn factorial(num i32) i32 {
     if num > 1 {
         return num * factorial(num - 1);
@@ -8,6 +10,8 @@ fn factorial(num i32) i32 {
 
 fn main() {
     let x = 5;
+    let fact_5 = factorial(x);
 
-    printf("factorial(x) = %d\n", factorial(x));
+    printf("factorial(%d) = %d\n", x, fact_5);
+    assert(fact_5, 120);
 }

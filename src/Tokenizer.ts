@@ -49,6 +49,8 @@ const Spec: [RegExp, string | null][] = [
   [/^let mut/, 'let_mut'],
   [/^let/, 'let'],
 
+  [/^struct/, 'struct'],
+
   // Keywords
   [/^if/, 'if'],
   [/^else/, 'else'],
@@ -59,11 +61,12 @@ const Spec: [RegExp, string | null][] = [
   [/^fire/, 'fire'],
   [/^loop over/, 'loop_over'],
   [/^loop/, 'loop'],
-  [/^as/, 'as'],
+  [/^as /, 'as'],
   [/^break/, 'break'],
   [/^continue/, 'continue'],
   [/^use/, 'use'],
   [/^pub/, 'pub'],
+  [/^@@Native/, 'native_code'],
 
   [/^i8/, 'primitive'],
   [/^i16/, 'primitive'],
